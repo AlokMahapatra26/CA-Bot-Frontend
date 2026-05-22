@@ -1,38 +1,23 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import Link from 'next/link';
-import { CheckCircle2, Clock, Download, Search, X, FileText, Bell } from 'lucide-react';
+import { Search, X, Download, FileText, MessageSquare, Trash2 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
-import DeleteButton from './DeleteButton';
-import FilingStatusSelect from './FilingStatusSelect';
-import DownloadDropdown from './DownloadDropdown';
 import ClientNameCell from './ClientNameCell';
+import DeleteButton from './DeleteButton';
 
-interface ClientDashboardProps {
+interface ClientsDashboardProps {
   clientsData: any[];
 }
 
 const getExtension = (url: string) => {
   try {
-    const parts = url.split('?')[0].split('.');
-    return parts.length > 1 ? parts.pop() : 'jpg';
-  } catch { return 'jpg'; }
-};
-
-const renderStatus = (status: string) => {
-  if (status === 'COMPLETED') {
-    return (
-      <span className="inline-flex items-center gap-1 text-[11px] font-medium text-green-700">
-        <CheckCircle2 className="w-3 h-3" /> Complete
-      </span>
-    );
+    const u = new URL(url);
+    const pathname = u.pathname;
+    return pathname.split('.').pop() || 'pdf';
+  } catch {
+    return 'pdf';
   }
-  return (
-    <span className="inline-flex items-center gap-1 text-[11px] font-medium text-amber-600">
-      <Clock className="w-3 h-3" /> {status.replace('AWAITING_', '').replace('_', ' ')}
-    </span>
-  );
 };
 
 const renderDocLink = (url: string | null, clientName: string, docType: string) => {
@@ -47,7 +32,7 @@ const renderDocLink = (url: string | null, clientName: string, docType: string) 
   );
 };
 
-export default function ClientDashboard({ clientsData }: ClientDashboardProps) {
+export default function ClientsDashboard({ clientsData }: ClientsDashboardProps) {
   const [query, setQuery] = useState('');
   const [activeMsgClient, setActiveMsgClient] = useState<{ id: string; name: string; jid: string } | null>(null);
   const [customMsgText, setCustomMsgText] = useState('');
@@ -57,22 +42,43 @@ export default function ClientDashboard({ clientsData }: ClientDashboardProps) {
     const q = query.trim().toLowerCase();
     if (!q) return clientsData;
     return clientsData.filter((c: any) =>
-      (c.full_name || '').toLowerCase().includes(q) || (c.phone_number || '').includes(q)
+      (c.full_name || '').toLowerCase().includes(q) ||
+      (c.phone_number || '').includes(q) ||
+      (c.email || '').toLowerCase().includes(q)
     );
   }, [clientsData, query]);
 
   const exportCSV = () => {
-    const headers = ['Full Name','Phone Number','Date of Birth','Email','Bank Name','Bank Account Number','Bank IFSC','FY Year','PAN Uploaded','Aadhaar Uploaded','Form 16 Uploaded','Filing Status','Last Updated'];
+    const headers = [
+      'Full Name',
+      'Phone Number',
+      'WhatsApp JID',
+      'Date of Birth',
+      'Email',
+      'PAN Card URL',
+      'Aadhaar Card URL',
+      'Joined Date'
+    ];
+    
     const rows = filtered.map((c: any) => {
-      const f = c.itr_filings?.[0] || null;
-      return [c.full_name||'', c.phone_number?`+${c.phone_number}`:'', c.date_of_birth||'', c.email||'', f?.bank_name||'', f?.bank_account_number||'', f?.bank_ifsc||'', f?.fy_year||'', c.pan_media_url?'Yes':'No', c.aadhaar_media_url?'Yes':'No', f?.form16_media_url?'Yes':'No', f?.filing_status||'', f?.updated_at?new Date(f.updated_at).toLocaleDateString('en-IN'):''].map(v => `"${String(v).replace(/"/g,'""')}"`);
+      return [
+        c.full_name || 'Anonymous',
+        c.phone_number ? `+${c.phone_number}` : '',
+        c.whatsapp_jid || '',
+        c.date_of_birth || '',
+        c.email || '',
+        c.pan_media_url || '',
+        c.aadhaar_media_url || '',
+        c.created_at ? new Date(c.created_at).toLocaleDateString('en-IN') : ''
+      ].map(v => `"${String(v).replace(/"/g, '""')}"`);
     });
+
     const csv = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
     const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `itr_clients_${new Date().toISOString().slice(0, 10)}.csv`;
+    a.download = `client_profiles_${new Date().toISOString().slice(0, 10)}.csv`;
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -89,8 +95,8 @@ export default function ClientDashboard({ clientsData }: ClientDashboardProps) {
               type="text"
               value={query}
               onChange={e => setQuery(e.target.value)}
-              placeholder="Search..."
-              className="pl-7 pr-7 py-1 text-[12px] bg-white border border-[#ddd] rounded-lg focus:outline-none focus:border-[#999] w-48 placeholder:text-[#bbb]"
+              placeholder="Search profiles..."
+              className="pl-7 pr-7 py-1 text-[12px] bg-white border border-[#ddd] rounded-lg focus:outline-none focus:border-[#999] w-52 placeholder:text-[#bbb]"
             />
             {query && (
               <button onClick={() => setQuery('')} className="absolute right-2 top-1/2 -translate-y-1/2 text-[#aaa] hover:text-[#555]">
@@ -98,15 +104,10 @@ export default function ClientDashboard({ clientsData }: ClientDashboardProps) {
               </button>
             )}
           </div>
-          <span className="text-[11px] text-[#999]">{filtered.length} records</span>
+          <span className="text-[11px] text-[#999]">{filtered.length} profiles</span>
         </div>
-        <div className="flex items-center gap-2">
-          <Link
-            href="/reminders"
-            className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-medium text-[#555] bg-white border border-[#ddd] rounded-lg hover:border-[#aaa] transition-colors"
-          >
-            <Bell className="w-3.5 h-3.5 text-[#888]" /> Reminders
-          </Link>
+        
+        <div>
           <button
             onClick={exportCSV}
             className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-medium text-[#555] bg-white border border-[#ddd] rounded-lg hover:border-[#aaa] transition-colors"
@@ -118,73 +119,87 @@ export default function ClientDashboard({ clientsData }: ClientDashboardProps) {
 
       {/* Table — full bleed */}
       <div className="flex-1 overflow-auto">
-        <table className="w-full min-w-[1400px] text-left border-collapse">
+        <table className="w-full min-w-[1200px] text-left border-collapse">
           <thead className="sticky top-0 z-10">
             <tr className="bg-[#f5f5f5] border-b border-[#e0e0e0] text-[11px] font-semibold text-[#666] uppercase tracking-wide">
-              <th className="px-3 py-2 border-r border-[#e0e0e0] w-[170px]">Name</th>
-              <th className="px-3 py-2 border-r border-[#e0e0e0] w-[130px]">Phone</th>
-              <th className="px-3 py-2 border-r border-[#e0e0e0] w-[80px]">FY</th>
-              <th className="px-3 py-2 border-r border-[#e0e0e0] w-[150px]">Bot Status</th>
-              <th className="px-3 py-2 border-r border-[#e0e0e0] w-[100px]">PAN</th>
-              <th className="px-3 py-2 border-r border-[#e0e0e0] w-[100px]">Aadhaar</th>
-              <th className="px-3 py-2 border-r border-[#e0e0e0] w-[100px]">Form 16</th>
-              <th className="px-3 py-2 border-r border-[#e0e0e0] w-[140px]">Filing Status</th>
-              <th className="px-3 py-2 border-r border-[#e0e0e0] w-[240px] text-center">Actions</th>
-              <th className="px-3 py-2 w-[120px] text-right">Updated</th>
+              <th className="px-3 py-2 border-r border-[#e0e0e0] w-[180px]">Name</th>
+              <th className="px-3 py-2 border-r border-[#e0e0e0] w-[130px]">Phone Number</th>
+              <th className="px-3 py-2 border-r border-[#e0e0e0] w-[200px]">WhatsApp JID</th>
+              <th className="px-3 py-2 border-r border-[#e0e0e0] w-[100px]">DOB</th>
+              <th className="px-3 py-2 border-r border-[#e0e0e0] w-[180px]">Email</th>
+              <th className="px-3 py-2 border-r border-[#e0e0e0] w-[110px]">PAN Card</th>
+              <th className="px-3 py-2 border-r border-[#e0e0e0] w-[110px]">Aadhaar Card</th>
+              <th className="px-3 py-2 border-r border-[#e0e0e0] w-[130px] text-right">Joined</th>
+              <th className="px-3 py-2 w-[185px] text-center">Actions</th>
             </tr>
           </thead>
           <tbody>
             {filtered.length === 0 && (
-              <tr><td colSpan={10} className="px-3 py-6 text-center text-[12px] text-[#aaa]">
-                {query ? `No results for "${query}"` : 'No clients yet.'}
-              </td></tr>
+              <tr>
+                <td colSpan={9} className="px-3 py-6 text-center text-[12px] text-[#aaa]">
+                  {query ? `No profiles matching "${query}"` : 'No client profiles found.'}
+                </td>
+              </tr>
             )}
             {filtered.map((client: any) => {
-              const f = client.itr_filings?.[0] || null;
               const name = client.full_name || 'Anonymous';
               const phone = client.phone_number ? `+${client.phone_number}` : '—';
+              const email = client.email || '—';
+              const dob = client.date_of_birth || '—';
 
               return (
                 <tr key={client.id} className="border-b border-[#eee] hover:bg-[#fafafa] transition-colors text-[12px] text-[#333]">
+                  {/* Name cell with details pop-up modal built-in */}
                   <td className="px-3 py-2 border-r border-[#eee] truncate font-medium">
                     <ClientNameCell client={client} />
                   </td>
-                  <td className="px-3 py-2 border-r border-[#eee]">{phone}</td>
-                  <td className="px-3 py-2 border-r border-[#eee] font-mono text-[11px] text-[#555]">{f?.fy_year || '—'}</td>
-                  <td className="px-3 py-2 border-r border-[#eee]">{f ? renderStatus(f.status) : <span className="text-[#ccc]">—</span>}</td>
-                  <td className="px-3 py-2 border-r border-[#eee]">{renderDocLink(client.pan_media_url, name, 'PAN')}</td>
-                  <td className="px-3 py-2 border-r border-[#eee]">{renderDocLink(client.aadhaar_media_url, name, 'Aadhaar')}</td>
-                  <td className="px-3 py-2 border-r border-[#eee]">{f ? renderDocLink(f.form16_media_url, name, 'Form16') : <span className="text-[#ccc]">—</span>}</td>
-                  <td className="px-3 py-2 border-r border-[#eee]">
-                    {f ? <FilingStatusSelect id={f.id} currentStatus={f.filing_status} /> : <span className="text-[#ccc]">—</span>}
+                  
+                  {/* Phone */}
+                  <td className="px-3 py-2 border-r border-[#eee] font-mono text-[11px] text-[#555] truncate">
+                    {phone}
                   </td>
-                  <td className="px-2 py-2 border-r border-[#eee] text-center">
+                  
+                  {/* WhatsApp JID */}
+                  <td className="px-3 py-2 border-r border-[#eee] font-mono text-[10px] text-[#777] truncate" title={client.whatsapp_jid || ''}>
+                    {client.whatsapp_jid || '—'}
+                  </td>
+                  
+                  {/* DOB */}
+                  <td className="px-3 py-2 border-r border-[#eee] font-mono text-[11px] text-[#555]">
+                    {dob}
+                  </td>
+                  
+                  {/* Email */}
+                  <td className="px-3 py-2 border-r border-[#eee] font-mono text-[11px] text-[#555] truncate" title={email}>
+                    {email}
+                  </td>
+                  
+                  {/* PAN Card */}
+                  <td className="px-3 py-2 border-r border-[#eee]">
+                    {renderDocLink(client.pan_media_url, name, 'PAN')}
+                  </td>
+                  
+                  {/* Aadhaar Card */}
+                  <td className="px-3 py-2 border-r border-[#eee]">
+                    {renderDocLink(client.aadhaar_media_url, name, 'Aadhaar')}
+                  </td>
+                  
+                  {/* Joined Date */}
+                  <td className="px-3 py-2 border-r border-[#eee] text-right text-[10px] text-[#999] whitespace-nowrap">
+                    {client.created_at ? formatDistanceToNow(new Date(client.created_at), { addSuffix: true }) : '—'}
+                  </td>
+                  
+                  {/* Actions (Message and Delete) */}
+                  <td className="px-2 py-2 text-center">
                     <div className="flex items-center justify-center gap-1.5">
-                      {f && (
-                        f.filing_status === 'DOCS_VERIFIED' ? (
-                          <span className="text-[10px] font-medium text-green-600 font-mono">✓ Docs Verified</span>
-                        ) : (
-                          <DownloadDropdown
-                            filingId={f.id}
-                            clientName={name}
-                            recipientJid={client.whatsapp_jid || ''}
-                            panUrl={client.pan_media_url}
-                            aadhaarUrl={client.aadhaar_media_url}
-                            form16Url={f.form16_media_url}
-                          />
-                        )
-                      )}
                       <button
                         onClick={() => setActiveMsgClient({ id: client.id, name, jid: client.whatsapp_jid || '' })}
                         className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-medium text-[#555] bg-white border border-[#ddd] rounded-lg hover:border-[#aaa] transition-colors"
                       >
                         Message
                       </button>
-                      <DeleteButton filingId={f?.id} clientId={client.id} />
+                      <DeleteButton clientId={client.id} />
                     </div>
-                  </td>
-                  <td className="px-3 py-2 text-right text-[10px] text-[#999] whitespace-nowrap">
-                    {f?.updated_at ? formatDistanceToNow(new Date(f.updated_at), { addSuffix: true }) : '—'}
                   </td>
                 </tr>
               );
@@ -193,10 +208,10 @@ export default function ClientDashboard({ clientsData }: ClientDashboardProps) {
         </table>
       </div>
 
-      {/* Modal Dialog */}
+      {/* Message Modal Dialog */}
       {activeMsgClient && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/35 backdrop-blur-[0.5px]">
-          <div className="bg-white border border-[#e0e0e0] rounded-xl w-full max-w-md overflow-hidden">
+          <div className="bg-white border border-[#e0e0e0] rounded-xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in-95 duration-100">
             <div className="bg-[#fafafa] px-4 py-2.5 border-b border-[#e0e0e0] flex items-center justify-between">
               <span className="text-[12px] font-bold text-[#111] uppercase tracking-wider">
                 Direct WhatsApp : {activeMsgClient.name}
@@ -211,6 +226,7 @@ export default function ClientDashboard({ clientsData }: ClientDashboardProps) {
                 ✕
               </button>
             </div>
+            
             <div className="p-4 space-y-4">
               <div className="space-y-1">
                 <label className="text-[11px] font-semibold text-[#555]">Message Content</label>
@@ -222,6 +238,7 @@ export default function ClientDashboard({ clientsData }: ClientDashboardProps) {
                   className="w-full px-2.5 py-1.5 text-[12px] bg-white border border-[#ddd] rounded-lg focus:outline-none focus:border-[#999] font-sans placeholder:text-[#ccc]"
                 />
               </div>
+              
               <div className="flex items-center justify-end gap-2">
                 <button
                   onClick={() => {

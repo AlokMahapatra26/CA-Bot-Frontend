@@ -13,8 +13,9 @@ export default async function DashboardPage() {
         fy_year,
         status,
         filing_status,
-        pan_media_url,
-        aadhaar_media_url,
+        bank_name,
+        bank_account_number,
+        bank_ifsc,
         form16_media_url,
         updated_at
       )

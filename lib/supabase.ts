@@ -8,20 +8,30 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 export type ItrStatus = 'AWAITING_PAN' | 'AWAITING_AADHAAR' | 'AWAITING_FORM16' | 'COMPLETED';
 
+export interface Client {
+  id: string;
+  phone_number: string | null;
+  whatsapp_jid: string | null;
+  full_name: string | null;
+  date_of_birth: string | null;
+  email: string | null;
+  pan_media_url: string | null;
+  aadhaar_media_url: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface ItrFiling {
   id: string;
   client_id: string;
   fy_year: string;
   status: ItrStatus;
-  pan_media_url: string | null;
-  aadhaar_media_url: string | null;
+  bank_name: string | null;
+  bank_account_number: string | null;
+  bank_ifsc: string | null;
   form16_media_url: string | null;
   filing_status: string;
   updated_at: string;
   created_at: string;
-  clients?: {
-    phone_number: string | null;
-    whatsapp_jid: string | null;
-    full_name: string | null;
-  };
+  clients?: Client;
 }

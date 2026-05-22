@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { X } from 'lucide-react';
+import { X, FileText } from 'lucide-react';
 
 interface Client {
   id: string;
@@ -10,14 +10,34 @@ interface Client {
   full_name: string | null;
   date_of_birth: string | null;
   email: string | null;
-  bank_name: string | null;
-  bank_account_number: string | null;
-  bank_ifsc: string | null;
+  pan_media_url: string | null;
+  aadhaar_media_url: string | null;
 }
 
 interface ClientNameCellProps {
   client: Client;
 }
+
+const getExtension = (url: string) => {
+  try {
+    const u = new URL(url);
+    return u.pathname.split('.').pop() || 'pdf';
+  } catch {
+    return 'pdf';
+  }
+};
+
+const renderDocLink = (url: string | null, clientName: string, docType: string) => {
+  if (!url) return <span className="text-slate-400 font-normal">—</span>;
+  const ext = getExtension(url);
+  const filename = `${clientName.replace(/[^a-zA-Z0-9]/g, '_')}_${docType}.${ext}`;
+  const downloadUrl = `/api/download?url=${encodeURIComponent(url)}&filename=${encodeURIComponent(filename)}`;
+  return (
+    <a href={downloadUrl} className="inline-flex items-center gap-1 text-[11px] text-blue-600 hover:underline font-mono" title="Download">
+      <FileText className="w-3.5 h-3.5" /> Download {docType}
+    </a>
+  );
+};
 
 export default function ClientNameCell({ client }: ClientNameCellProps) {
   const [isOpen, setIsOpen] = useState(false);
@@ -108,16 +128,16 @@ export default function ClientNameCell({ client }: ClientNameCellProps) {
                       <td className="px-3 py-2.5 text-slate-900 font-mono truncate" title={client.email || ''}>{client.email || '—'}</td>
                     </tr>
                     <tr className="border-b border-slate-100">
-                      <td className="px-3 py-2.5 font-bold text-slate-500 border-r border-slate-100">Bank Name</td>
-                      <td className="px-3 py-2.5 text-slate-900 font-semibold truncate">{client.bank_name || '—'}</td>
+                      <td className="px-3 py-2.5 font-bold text-slate-500 border-r border-slate-100">PAN Card</td>
+                      <td className="px-3 py-2.5 text-slate-900 font-semibold truncate">
+                        {renderDocLink(client.pan_media_url, clientName, 'PAN')}
+                      </td>
                     </tr>
-                    <tr className="border-b border-slate-100 bg-slate-50/50">
-                      <td className="px-3 py-2.5 font-bold text-slate-500 border-r border-slate-100">Account Number</td>
-                      <td className="px-3 py-2.5 text-slate-900 font-mono">{client.bank_account_number || '—'}</td>
-                    </tr>
-                    <tr className="border-slate-100">
-                      <td className="px-3 py-2.5 font-bold text-slate-500 border-r border-slate-100">IFSC Code</td>
-                      <td className="px-3 py-2.5 text-slate-900 font-mono">{client.bank_ifsc || '—'}</td>
+                    <tr className="border-slate-100 bg-slate-50/50">
+                      <td className="px-3 py-2.5 font-bold text-slate-500 border-r border-slate-100">Aadhaar Card</td>
+                      <td className="px-3 py-2.5 text-slate-900 font-semibold truncate">
+                        {renderDocLink(client.aadhaar_media_url, clientName, 'Aadhaar')}
+                      </td>
                     </tr>
                   </tbody>
                 </table>

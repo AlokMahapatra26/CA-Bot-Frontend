@@ -43,6 +43,7 @@ export async function deleteClient(id: string) {
     }
 
     revalidatePath('/');
+    revalidatePath('/clients');
     return { success: true };
   } catch (error: any) {
     console.error('Delete Client Action Error:', error);
@@ -100,17 +101,53 @@ export async function rejectDocument(
       throw new Error('Invalid document type specified');
     }
 
-    // 2. Update Supabase: Clear the media URL and set status back to collect that document
-    const { error } = await serverSupabase
+    // Fetch filing to get client_id
+    const { data: filingRow, error: fetchErr } = await serverSupabase
       .from('itr_filings')
-      .update({
-        [doc.column]: null,
-        status: doc.state
-      })
-      .eq('id', filingId);
+      .select('client_id')
+      .eq('id', filingId)
+      .single();
 
-    if (error) {
-      throw new Error(`Database update failed: ${error.message}`);
+    if (fetchErr || !filingRow) {
+      throw new Error(`Failed to fetch filing: ${fetchErr?.message || 'Not found'}`);
+    }
+
+    const clientId = filingRow.client_id;
+
+    // 2. Update Supabase: Clear the media URL and set status back to collect that document
+    if (docType === 'PAN' || docType === 'Aadhaar') {
+      // Identity documents are on the 'clients' table
+      const { error: clientErr } = await serverSupabase
+        .from('clients')
+        .update({ [doc.column]: null })
+        .eq('id', clientId);
+
+      if (clientErr) {
+        throw new Error(`Client update failed: ${clientErr.message}`);
+      }
+
+      // Reset the filing's status
+      const { error: filingErr } = await serverSupabase
+        .from('itr_filings')
+        .update({ status: doc.state })
+        .eq('id', filingId);
+
+      if (filingErr) {
+        throw new Error(`Filing update failed: ${filingErr.message}`);
+      }
+    } else {
+      // Form16 is on the 'itr_filings' table
+      const { error: filingErr } = await serverSupabase
+        .from('itr_filings')
+        .update({
+          form16_media_url: null,
+          status: doc.state
+        })
+        .eq('id', filingId);
+
+      if (filingErr) {
+        throw new Error(`Filing update failed: ${filingErr.message}`);
+      }
     }
 
     // 3. Send automated WhatsApp notification through backend WhatsApp socket
@@ -128,6 +165,7 @@ export async function rejectDocument(
     }
 
     revalidatePath('/');
+    revalidatePath('/clients');
     return { success: true };
   } catch (error: any) {
     console.error('Reject Document Action Error:', error);

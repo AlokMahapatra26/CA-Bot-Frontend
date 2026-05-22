@@ -3,12 +3,13 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useState, useEffect } from 'react';
-import { FileText, Wifi, PanelLeftClose, PanelLeft } from 'lucide-react';
+import { FileText, Wifi, PanelLeftClose, PanelLeft, Users } from 'lucide-react';
 import { siteData } from '@/app/site-data';
 
 const navItems = [
   { href: '/bot', label: 'WhatsApp Bot', icon: Wifi },
   { href: '/', label: 'ITR Filing', icon: FileText },
+  { href: '/clients', label: 'Client Profiles', icon: Users },
 ];
 
 export default function Sidebar() {
