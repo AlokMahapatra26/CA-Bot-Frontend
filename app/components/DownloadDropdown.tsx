@@ -23,6 +23,7 @@ interface DownloadDropdownProps {
     clientName: string;
     filingId: string;
     whatsappJid: string;
+    filingStatus?: string;
   }) => void;
 }
 
