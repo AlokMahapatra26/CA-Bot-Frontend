@@ -7,7 +7,8 @@ All notable changes to the CA-bOt Frontend client dashboard will be documented i
 - **Developer Settings Backdoor / Bulk Profile Deletion**:
   - Implemented a secure key combination trigger (`Ctrl + D` twice within 800ms) that toggles developer modes.
   - Added a premium, glassmorphic red "Delete All Profiles" button to the clients toolbar.
-  - Set up a highly secure two-step confirmation process (alert confirmation + manual text typing check `"DELETE ALL"`) before data destruction.
+  - Designed and built a stunning, minimalist custom modal dialog matching the dashboard's design system (blur filters, red border accents, monospace input, success/error handlers) that completely replaces the browser's native `alert`, `confirm`, and `prompt` dialogs.
+  - Set up a highly secure multi-step custom verification flow (confirmation page → dynamic security word match check `"DELETE ALL"` → loading spinner state → elegant success/error feedback pages).
   - Implemented the `deleteAllClients` server action inside `wb-frontend/app/actions.ts` to perform bulk database wipe.
 
 ## [1.12.0] - 2026-05-23

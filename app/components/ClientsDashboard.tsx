@@ -97,32 +97,70 @@ export default function ClientsDashboard({ clientsData }: ClientsDashboardProps)
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
-  const handleDeleteAll = async () => {
-    const confirm1 = window.confirm(
-      "⚠️ DANGER: You are about to delete ALL client profiles in the database. This action CANNOT be undone. Are you sure you want to proceed?"
-    );
-    if (!confirm1) return;
+  const [developerDeleteModal, setDeveloperDeleteModal] = useState<{
+    isOpen: boolean;
+    step: 'confirm' | 'input' | 'loading' | 'success' | 'error';
+    inputValue: string;
+    errorMessage: string;
+  }>({
+    isOpen: false,
+    step: 'confirm',
+    inputValue: '',
+    errorMessage: ''
+  });
 
-    const confirm2 = window.prompt(
-      "Type 'DELETE ALL' to confirm the permanent destruction of all client profiles:"
-    );
-    if (confirm2 !== 'DELETE ALL') {
-      alert("❌ Confirmation failed. Operation canceled.");
+  const handleStartDeleteFlow = () => {
+    setDeveloperDeleteModal({
+      isOpen: true,
+      step: 'confirm',
+      inputValue: '',
+      errorMessage: ''
+    });
+  };
+
+  const handleConfirmDeleteStep = () => {
+    setDeveloperDeleteModal(prev => ({
+      ...prev,
+      step: 'input'
+    }));
+  };
+
+  const handleExecuteDelete = async () => {
+    if (developerDeleteModal.inputValue !== 'DELETE ALL') {
       return;
     }
+
+    setDeveloperDeleteModal(prev => ({
+      ...prev,
+      step: 'loading'
+    }));
 
     startTransition(async () => {
       try {
         const { deleteAllClients } = await import('../actions');
         const res = await deleteAllClients();
         if (res.success) {
-          alert("✅ Successfully deleted all client profiles!");
-          router.refresh();
+          setDeveloperDeleteModal({
+            isOpen: true,
+            step: 'success',
+            inputValue: '',
+            errorMessage: ''
+          });
         } else {
-          alert(`❌ Failed to delete all profiles: ${res.error}`);
+          setDeveloperDeleteModal({
+            isOpen: true,
+            step: 'error',
+            inputValue: '',
+            errorMessage: res.error || 'Unknown error'
+          });
         }
       } catch (err: any) {
-        alert(`❌ Error: ${err.message}`);
+        setDeveloperDeleteModal({
+          isOpen: true,
+          step: 'error',
+          inputValue: '',
+          errorMessage: err.message || 'Unknown error'
+        });
       }
     });
   };
@@ -416,7 +454,7 @@ export default function ClientsDashboard({ clientsData }: ClientsDashboardProps)
         <div className="flex items-center gap-1.5">
           {showDeveloperDelete && (
             <button
-              onClick={handleDeleteAll}
+              onClick={handleStartDeleteFlow}
               className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-bold text-white bg-red-600 hover:bg-red-700 border border-red-700 rounded-lg transition-colors shadow-sm animate-in fade-in slide-in-from-top-1 duration-150 mr-1"
             >
               <Trash2 className="w-3.5 h-3.5 text-white" />
@@ -1086,6 +1124,136 @@ export default function ClientsDashboard({ clientsData }: ClientsDashboardProps)
               <div className="pt-4 border-t border-slate-200 text-center">
                 <span className="text-[10px] text-slate-450 font-medium">Internal CA KYC Records</span>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Developer Delete Modal */}
+      {developerDeleteModal.isOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm transition-all animate-in fade-in duration-200">
+          <div className="bg-white border border-[#e0e0e0] rounded-xl w-full max-w-sm overflow-hidden shadow-2xl transition-all animate-in zoom-in-95 duration-200">
+            <div className="bg-red-50 px-4 py-3 border-b border-red-100 flex items-center justify-between">
+              <span className="text-[12px] font-extrabold text-red-700 uppercase tracking-widest flex items-center gap-1.5">
+                <Trash2 className="w-3.5 h-3.5 text-red-700" />
+                <span>Developer Danger Zone</span>
+              </span>
+              <button 
+                onClick={() => setDeveloperDeleteModal(prev => ({ ...prev, isOpen: false }))} 
+                className="text-red-400 hover:text-red-700 text-xs font-semibold"
+              >
+                ✕
+              </button>
+            </div>
+            
+            <div className="p-5 space-y-4">
+              {developerDeleteModal.step === 'confirm' && (
+                <div className="space-y-4">
+                  <p className="text-[12px] leading-relaxed text-[#444] font-medium">
+                    ⚠️ <strong className="text-red-700">CRITICAL WARNING:</strong> You are about to permanently delete <strong className="text-black">ALL</strong> client profiles in the database. 
+                  </p>
+                  <p className="text-[11px] leading-relaxed text-[#777]">
+                    This action is immediate, catastrophic, and completely irreversible. All filing histories associated with these profiles may be affected.
+                  </p>
+                  <div className="flex items-center justify-end gap-2 pt-2">
+                    <button
+                      onClick={() => setDeveloperDeleteModal(prev => ({ ...prev, isOpen: false }))}
+                      className="px-3 py-1.5 text-[11px] font-semibold text-[#555] bg-white border border-[#ddd] rounded-lg hover:border-[#aaa] transition-colors"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={handleConfirmDeleteStep}
+                      className="px-3 py-1.5 text-[11px] font-bold text-white bg-red-600 hover:bg-red-700 border border-red-700 rounded-lg transition-colors shadow-sm"
+                    >
+                      Yes, Proceed
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {developerDeleteModal.step === 'input' && (
+                <div className="space-y-4">
+                  <div className="space-y-1.5">
+                    <label className="text-[11px] font-bold text-[#444]">
+                      Please type <span className="font-mono text-red-700 bg-red-50 border border-red-100 px-1 rounded">DELETE ALL</span> to confirm:
+                    </label>
+                    <input
+                      type="text"
+                      value={developerDeleteModal.inputValue}
+                      onChange={e => setDeveloperDeleteModal(prev => ({ ...prev, inputValue: e.target.value }))}
+                      placeholder="DELETE ALL"
+                      className="w-full px-3 py-2 text-[12px] font-mono font-bold bg-white border border-[#ddd] rounded-lg focus:outline-none focus:border-red-500 focus:ring-1 focus:ring-red-500 placeholder:text-[#ddd] tracking-widest text-center uppercase"
+                      autoFocus
+                    />
+                  </div>
+                  <div className="flex items-center justify-end gap-2 pt-2">
+                    <button
+                      onClick={() => setDeveloperDeleteModal(prev => ({ ...prev, isOpen: false }))}
+                      className="px-3 py-1.5 text-[11px] font-semibold text-[#555] bg-white border border-[#ddd] rounded-lg hover:border-[#aaa] transition-colors"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={handleExecuteDelete}
+                      disabled={developerDeleteModal.inputValue !== 'DELETE ALL'}
+                      className="px-3 py-1.5 text-[11px] font-extrabold text-white bg-red-700 hover:bg-red-800 disabled:bg-[#f5f5f5] disabled:text-[#aaa] disabled:border-[#eee] border border-red-800 rounded-lg transition-all shadow-sm"
+                    >
+                      Permanently Destroy All
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {developerDeleteModal.step === 'loading' && (
+                <div className="py-6 flex flex-col items-center justify-center space-y-3">
+                  <RefreshCw className="w-6 h-6 text-red-600 animate-spin" />
+                  <span className="text-[12px] font-bold text-[#111]">Executing deletion on database...</span>
+                  <span className="text-[10px] text-[#888]">Please do not close this window.</span>
+                </div>
+              )}
+
+              {developerDeleteModal.step === 'success' && (
+                <div className="space-y-4 py-2">
+                  <div className="flex flex-col items-center justify-center space-y-2 text-center">
+                    <CheckCircle2 className="w-8 h-8 text-emerald-600" />
+                    <span className="text-[13px] font-bold text-emerald-800">Operation Successful</span>
+                    <p className="text-[11px] text-[#666] leading-relaxed max-w-[240px]">
+                      Successfully deleted all client profiles from the database!
+                    </p>
+                  </div>
+                  <div className="flex items-center justify-center pt-2">
+                    <button
+                      onClick={() => {
+                        setDeveloperDeleteModal(prev => ({ ...prev, isOpen: false }));
+                        router.refresh();
+                      }}
+                      className="w-full max-w-[150px] px-3 py-1.5 text-[11px] font-bold text-[#111] bg-white border border-[#ddd] hover:border-[#aaa] rounded-lg transition-colors text-center"
+                    >
+                      Close & Refresh
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {developerDeleteModal.step === 'error' && (
+                <div className="space-y-4 py-2">
+                  <div className="flex flex-col items-center justify-center space-y-2 text-center">
+                    <X className="w-8 h-8 text-red-650 border-2 border-red-650 rounded-full p-1" />
+                    <span className="text-[13px] font-bold text-red-800">Operation Failed</span>
+                    <p className="text-[11px] text-red-650 font-medium leading-relaxed max-w-[240px]">
+                      {developerDeleteModal.errorMessage}
+                    </p>
+                  </div>
+                  <div className="flex items-center justify-center pt-2">
+                    <button
+                      onClick={() => setDeveloperDeleteModal(prev => ({ ...prev, isOpen: false }))}
+                      className="w-full max-w-[150px] px-3 py-1.5 text-[11px] font-bold text-[#111] bg-white border border-[#ddd] hover:border-[#aaa] rounded-lg transition-colors text-center"
+                    >
+                      Close
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
