@@ -8,6 +8,7 @@ import DeleteButton from './DeleteButton';
 import FilingStatusSelect from './FilingStatusSelect';
 import DownloadDropdown from './DownloadDropdown';
 import ClientNameCell from './ClientNameCell';
+import DocPreviewModal from './DocPreviewModal';
 
 interface ClientDashboardProps {
   clientsData: any[];
@@ -95,20 +96,27 @@ const renderIncomeSource = (source: string | null) => {
   );
 };
 
-const renderFilingDocs = (f: any, clientName: string) => {
+const renderFilingDocs = (
+  f: any,
+  clientName: string,
+  filingId: string,
+  whatsappJid: string,
+  onPreview: (doc: any) => void
+) => {
   if (!f) return <span className="text-[#ccc]">—</span>;
   const docs = [];
-  if (f.form16_media_url) docs.push({ url: f.form16_media_url, label: 'Form 16' });
-  if (f.bank_statement_media_url) docs.push({ url: f.bank_statement_media_url, label: 'Bank Statement' });
-  if (f.capital_gains_media_url) docs.push({ url: f.capital_gains_media_url, label: 'Capital Gains' });
-  if (f.property_docs_media_url) docs.push({ url: f.property_docs_media_url, label: 'Property Deeds' });
+  if (f.form16_media_url) docs.push({ url: f.form16_media_url, label: 'Form 16', type: 'Form16' });
+  if (f.bank_statement_media_url) docs.push({ url: f.bank_statement_media_url, label: 'Bank Statement', type: 'BankStatement' });
+  if (f.capital_gains_media_url) docs.push({ url: f.capital_gains_media_url, label: 'Capital Gains', type: 'CapitalGains' });
+  if (f.property_docs_media_url) docs.push({ url: f.property_docs_media_url, label: 'Property Deeds', type: 'PropertyDocs' });
   
   if (f.other_docs_media_url) {
     const urls = f.other_docs_media_url.split(',');
     urls.forEach((url: string, idx: number) => {
       docs.push({
         url: url.trim(),
-        label: urls.length > 1 ? `Other Doc ${idx + 1}` : 'Other Doc'
+        label: urls.length > 1 ? `Other Doc ${idx + 1}` : 'Other Doc',
+        type: 'OtherDocs'
       });
     });
   }
@@ -124,18 +132,23 @@ const renderFilingDocs = (f: any, clientName: string) => {
   return (
     <div className="flex flex-wrap gap-1">
       {docs.map((doc, idx) => {
-        const ext = getExtension(doc.url);
-        const filename = `${clientName.replace(/[^a-zA-Z0-9]/g, '_')}_${doc.label.replace(/\s/g, '_')}.${ext}`;
-        const downloadUrl = `/api/download?url=${encodeURIComponent(doc.url)}&filename=${encodeURIComponent(filename)}`;
         return (
-          <a
+          <button
             key={idx}
-            href={downloadUrl}
+            onClick={() => onPreview({
+              url: doc.url,
+              label: doc.label,
+              type: doc.type,
+              clientName,
+              filingId,
+              whatsappJid,
+              filingStatus: f.filing_status
+            })}
             className="inline-flex items-center gap-1 text-[10.5px] px-2 py-0.5 bg-blue-50 text-blue-700 border border-blue-100 hover:bg-blue-100 hover:text-blue-800 transition-all rounded font-medium"
-            title={`Download ${doc.label}`}
+            title={`Review ${doc.label}`}
           >
             <FileText className="w-3 h-3 text-blue-500" /> {doc.label}
-          </a>
+          </button>
         );
       })}
     </div>
@@ -148,6 +161,15 @@ export default function ClientDashboard({ clientsData }: ClientDashboardProps) {
   const [query, setQuery] = useState('');
   const [activeMsgClient, setActiveMsgClient] = useState<{ id: string; name: string; jid: string } | null>(null);
   const [customMsgText, setCustomMsgText] = useState('');
+  const [activePreviewDoc, setActivePreviewDoc] = useState<{
+    url: string;
+    label: string;
+    type: 'Form16' | 'BankStatement' | 'CapitalGains' | 'PropertyDocs' | 'OtherDocs';
+    clientName: string;
+    filingId: string;
+    whatsappJid: string;
+    filingStatus?: string;
+  } | null>(null);
 
   const handleRefresh = () => {
     startTransition(() => {
@@ -257,9 +279,20 @@ export default function ClientDashboard({ clientsData }: ClientDashboardProps) {
                   <td className="px-3 py-2 border-r border-[#eee] font-mono text-[11px] text-[#555]">{f?.fy_year || '—'}</td>
                   <td className="px-3 py-2 border-r border-[#eee]">{f ? renderStatus(f.status) : <span className="text-[#ccc]">—</span>}</td>
                   <td className="px-3 py-2 border-r border-[#eee]">{f ? renderIncomeSource(f.income_source) : <span className="text-[#ccc]">—</span>}</td>
-                  <td className="px-3 py-2 border-r border-[#eee]">{f ? renderFilingDocs(f, name) : <span className="text-[#ccc]">—</span>}</td>
+                  <td className="px-3 py-2 border-r border-[#eee]">{f ? renderFilingDocs(f, name, f.id, client.whatsapp_jid || '', (previewData) => setActivePreviewDoc(previewData)) : <span className="text-[#ccc]">—</span>}</td>
                   <td className="px-3 py-2 border-r border-[#eee]">
-                    {f ? <FilingStatusSelect id={f.id} currentStatus={f.filing_status} /> : <span className="text-[#ccc]">—</span>}
+                    {f ? (
+                      <FilingStatusSelect 
+                        id={f.id} 
+                        currentStatus={f.filing_status} 
+                        notes={f.notes}
+                        clientName={name}
+                        whatsappJid={client.whatsapp_jid || ''}
+                        onPreview={(previewData) => setActivePreviewDoc(previewData)}
+                      />
+                    ) : (
+                      <span className="text-[#ccc]">—</span>
+                    )}
                   </td>
                   <td className="px-2 py-2 border-r border-[#eee] text-center">
                     <div className="flex items-center justify-center gap-1.5">
@@ -271,13 +304,12 @@ export default function ClientDashboard({ clientsData }: ClientDashboardProps) {
                             filingId={f.id}
                             clientName={name}
                             recipientJid={client.whatsapp_jid || ''}
-                            panUrl={client.pan_media_url}
-                            aadhaarUrl={client.aadhaar_media_url}
                             form16Url={f.form16_media_url}
                             bankStatementUrl={f.bank_statement_media_url}
                             capitalGainsUrl={f.capital_gains_media_url}
                             propertyDocsUrl={f.property_docs_media_url}
                             otherDocsUrl={f.other_docs_media_url}
+                            onPreview={(previewData) => setActivePreviewDoc(previewData)}
                           />
                         )
                       )}
@@ -371,6 +403,13 @@ export default function ClientDashboard({ clientsData }: ClientDashboardProps) {
             </div>
           </div>
         </div>
+      )}
+      {activePreviewDoc && (
+        <DocPreviewModal
+          isOpen={!!activePreviewDoc}
+          onClose={() => setActivePreviewDoc(null)}
+          doc={activePreviewDoc}
+        />
       )}
     </div>
   );

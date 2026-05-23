@@ -167,7 +167,9 @@ export async function rejectDocument(
   filingId: string,
   clientName: string,
   recipientJid: string,
-  docType: 'PAN' | 'Aadhaar' | 'Form16' | 'BankStatement' | 'CapitalGains' | 'PropertyDocs' | 'OtherDocs'
+  docType: 'PAN' | 'Aadhaar' | 'Form16' | 'BankStatement' | 'CapitalGains' | 'PropertyDocs' | 'OtherDocs',
+  reason?: string,
+  targetUrl?: string
 ) {
   try {
     // 1. Map document types to DB columns and bot states
@@ -249,11 +251,33 @@ export async function rejectDocument(
         throw new Error(`Filing update failed: ${filingErr.message}`);
       }
     } else {
+      let finalUrlValue: string | null = null;
+
+      if (docType === 'OtherDocs' && targetUrl) {
+        // Fetch current other_docs_media_url to selectively filter
+        const { data: currentFiling, error: selectErr } = await serverSupabase
+          .from('itr_filings')
+          .select('other_docs_media_url')
+          .eq('id', filingId)
+          .single();
+
+        if (!selectErr && currentFiling?.other_docs_media_url) {
+          const urls = currentFiling.other_docs_media_url.split(',');
+          const filteredUrls = urls
+            .map((url: string) => url.trim())
+            .filter((url: string) => url !== targetUrl.trim());
+
+          if (filteredUrls.length > 0) {
+            finalUrlValue = filteredUrls.join(',');
+          }
+        }
+      }
+
       // filing documents are on the 'itr_filings' table
       const { error: filingErr } = await serverSupabase
         .from('itr_filings')
         .update({
-          [doc.column]: null,
+          [doc.column]: finalUrlValue,
           status: doc.state
         })
         .eq('id', filingId);
@@ -264,12 +288,13 @@ export async function rejectDocument(
     }
 
     // 3. Send automated WhatsApp notification through backend WhatsApp socket
+    const reasonText = reason ? `\n\n*Reason:* ${reason}` : ' due to incomplete or unclear details';
     const response = await fetch('http://localhost:4000/api/send-message', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         jid: recipientJid,
-        text: `⚠️ *Document Rejected* ⚠️\n\nDear *${clientName}*,\n\nYour submitted *${doc.label}* has been rejected by our CA team due to incomplete or unclear details.\n\nPlease upload a clear photo or PDF of your *${doc.label}* again on WhatsApp to proceed with your ITR filing.\n\nThank you! 🙏`
+        text: `⚠️ *Document Rejected* ⚠️\n\nDear *${clientName}*,\n\nYour submitted *${doc.label}* has been rejected by our CA team${reasonText}.\n\nPlease upload a clear photo or PDF of your *${doc.label}* again on WhatsApp to proceed with your ITR filing.\n\nThank you! 🙏`
       })
     });
 
@@ -290,13 +315,17 @@ export async function acceptDocument(
   filingId: string,
   clientName: string,
   recipientJid: string,
-  docType: 'PAN' | 'Aadhaar' | 'Form16'
+  docType: 'PAN' | 'Aadhaar' | 'Form16' | 'BankStatement' | 'CapitalGains' | 'PropertyDocs' | 'OtherDocs'
 ) {
   try {
     const docLabels = {
       PAN: 'PAN Card',
       Aadhaar: 'Aadhaar Card',
-      Form16: 'Form 16'
+      Form16: 'Form 16',
+      BankStatement: 'Bank Statement',
+      CapitalGains: 'Capital Gains Statement',
+      PropertyDocs: 'Property Deeds',
+      OtherDocs: 'Other Supporting Document'
     };
 
     const docLabel = docLabels[docType] || docType;
@@ -356,6 +385,105 @@ export async function acceptAllDocuments(
     return { success: true };
   } catch (error: any) {
     console.error('Accept All Documents Action Error:', error);
+    return { success: false, error: error.message };
+  }
+}
+
+export async function uploadItrvReceipt(filingId: string, formData: FormData) {
+  try {
+    const file = formData.get('file') as File;
+    if (!file) throw new Error('No file provided');
+
+    // 1. Convert File to Buffer
+    const bytes = await file.arrayBuffer();
+    const buffer = Buffer.from(bytes);
+
+    // 2. Upload to Supabase Storage
+    const timestamp = Date.now();
+    const rawExtension = file.name.split('.').pop() || 'pdf';
+    const extension = rawExtension.toLowerCase();
+    const cleanFileName = `itrv_${filingId}_${timestamp}.${extension}`;
+    const filePath = `itrv_receipts/${cleanFileName}`;
+
+    const { error: uploadErr } = await serverSupabase.storage
+      .from('itr-documents')
+      .upload(filePath, buffer, {
+        contentType: file.type || 'application/pdf',
+        upsert: true
+      });
+
+    if (uploadErr) {
+      throw new Error(`Failed to upload file to storage: ${uploadErr.message}`);
+    }
+
+    // 3. Get the public URL of the uploaded receipt
+    const { data: publicUrlData } = serverSupabase.storage
+      .from('itr-documents')
+      .getPublicUrl(filePath);
+
+    const publicUrl = publicUrlData.publicUrl;
+
+    // 4. Update the 'notes' field inside 'itr_filings' to save this ITR-V receipt URL
+    // and set filing_status to 'FILED'!
+    const { error: dbErr } = await serverSupabase
+      .from('itr_filings')
+      .update({
+        notes: publicUrl,
+        filing_status: 'FILED'
+      })
+      .eq('id', filingId);
+
+    if (dbErr) {
+      throw new Error(`Failed to update filing status: ${dbErr.message}`);
+    }
+
+    // 5. Fetch client info to send automated WhatsApp message
+    const { data: filingRow, error: fetchErr } = await serverSupabase
+      .from('itr_filings')
+      .select('client_id, fy_year, clients (whatsapp_jid, full_name, phone_number)')
+      .eq('id', filingId)
+      .single();
+
+    if (fetchErr || !filingRow) {
+      console.warn('Failed to fetch client for WhatsApp receipt notification:', fetchErr?.message);
+    } else {
+      const client = (filingRow as any).clients;
+      const recipientJid = client?.whatsapp_jid || (client?.phone_number ? `${client.phone_number}@s.whatsapp.net` : null);
+      const clientName = client?.full_name || 'there';
+      const activeFy = (filingRow as any).fy_year || '2025-26';
+
+      if (recipientJid) {
+        // Send automated message with document attachment!
+        try {
+          const waResponse = await fetch('http://localhost:4000/api/send-message', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              jid: recipientJid,
+              text: 
+                `🎉 *ITR Filing Completed!* 🎉\n\n` +
+                `Dear *${clientName}*,\n\n` +
+                `We have successfully filed your Income Tax Return for Financial Year *${activeFy}*!\n\n` +
+                `Please find your official *ITR-V Acknowledgement Receipt* PDF attached below for your records.\n\n` +
+                `Thank you for choosing *DAV Labs*! 🙏`,
+              documentUrl: publicUrl,
+              fileName: `ITRV_Acknowledgement_${clientName.replace(/[^a-zA-Z0-9]/g, '_')}_FY_${activeFy}.pdf`
+            })
+          });
+
+          if (!waResponse.ok) {
+            console.warn('WhatsApp API Warning: Failed to deliver receipt message to WhatsApp bot.');
+          }
+        } catch (waErr) {
+          console.warn('WhatsApp delivery exception:', waErr);
+        }
+      }
+    }
+
+    revalidatePath('/');
+    return { success: true, url: publicUrl };
+  } catch (error: any) {
+    console.error('uploadItrvReceipt Error:', error);
     return { success: false, error: error.message };
   }
 }

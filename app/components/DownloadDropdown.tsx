@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { ChevronDown, Check, X, Loader2 } from 'lucide-react';
 import { rejectDocument, acceptAllDocuments } from '../actions';
 
@@ -8,13 +9,19 @@ interface DownloadDropdownProps {
   filingId: string;
   clientName: string;
   recipientJid: string;
-  panUrl: string | null;
-  aadhaarUrl: string | null;
   form16Url: string | null;
   bankStatementUrl: string | null;
   capitalGainsUrl: string | null;
   propertyDocsUrl: string | null;
   otherDocsUrl: string | null;
+  onPreview: (doc: {
+    url: string;
+    label: string;
+    type: 'Form16' | 'BankStatement' | 'CapitalGains' | 'PropertyDocs' | 'OtherDocs';
+    clientName: string;
+    filingId: string;
+    whatsappJid: string;
+  }) => void;
 }
 
 type DocType = 'Form16' | 'BankStatement' | 'CapitalGains' | 'PropertyDocs' | 'OtherDocs';
@@ -23,14 +30,14 @@ export default function DownloadDropdown({
   filingId,
   clientName,
   recipientJid,
-  panUrl,
-  aadhaarUrl,
   form16Url,
   bankStatementUrl,
   capitalGainsUrl,
   propertyDocsUrl,
   otherDocsUrl,
+  onPreview,
 }: DownloadDropdownProps) {
+  const router = useRouter();
   const [isOpen, setIsOpen] = useState(false);
   const [loadingDoc, setLoadingDoc] = useState<DocType | 'ALL' | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -53,13 +60,14 @@ export default function DownloadDropdown({
 
     if (result.success) {
       alert(`✅ Documents have been accepted and a verification confirmation has been sent to the client's WhatsApp.`);
+      router.refresh();
       setIsOpen(false);
     } else {
       alert(`Failed to accept documents: ${result.error || 'Unknown error'}`);
     }
   };
 
-  const handleReject = async (docType: DocType, docLabel: string) => {
+  const handleReject = async (docType: DocType, docLabel: string, docUrl?: string) => {
     const confirmed = window.confirm(
       `Are you sure you want to REJECT the ${docLabel}? \n\nThis will permanently delete the uploaded document from Supabase and automatically notify the client on WhatsApp to upload it again.`
     );
@@ -67,11 +75,12 @@ export default function DownloadDropdown({
     if (!confirmed) return;
 
     setLoadingDoc(docType);
-    const result = await rejectDocument(filingId, clientName, recipientJid, docType);
+    const result = await rejectDocument(filingId, clientName, recipientJid, docType, undefined, docUrl);
     setLoadingDoc(null);
 
     if (result.success) {
       alert(`❌ ${docLabel} has been rejected. An automated request has been sent to the client's WhatsApp.`);
+      router.refresh();
       setIsOpen(false);
     } else {
       alert(`Failed to reject document: ${result.error || 'Unknown error'}`);
@@ -122,11 +131,22 @@ export default function DownloadDropdown({
           <div className="max-h-60 overflow-y-auto divide-y divide-slate-100">
             {activeDocs.map((doc) => (
               <div key={`${doc.type}-${doc.label}`} className="px-3 py-2 text-[12px] font-medium flex items-center justify-between gap-4">
-                <span className="font-bold text-slate-800 truncate" title={doc.label}>
-                  {doc.label}
-                </span>
                 <button
-                  onClick={() => handleReject(doc.type, doc.label)}
+                  onClick={() => onPreview({
+                    url: doc.url!,
+                    label: doc.label,
+                    type: doc.type,
+                    clientName,
+                    filingId,
+                    whatsappJid: recipientJid
+                  })}
+                  className="font-bold text-slate-800 hover:text-blue-600 transition-colors text-left truncate flex-1 hover:underline"
+                  title={`Click to preview ${doc.label}`}
+                >
+                  {doc.label}
+                </button>
+                <button
+                  onClick={() => handleReject(doc.type, doc.label, doc.url || undefined)}
                   disabled={loadingDoc !== null}
                   className="inline-flex items-center gap-1 text-[9px] px-2 py-0.5 bg-red-50 text-red-700 border border-red-200 font-bold uppercase tracking-wider hover:bg-red-100/60 disabled:opacity-50 rounded shrink-0"
                 >
