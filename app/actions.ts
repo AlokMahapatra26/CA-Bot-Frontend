@@ -669,3 +669,21 @@ export async function getChangelogs() {
   }
 }
 
+export async function deleteAllClients() {
+  try {
+    const { error } = await serverSupabase
+      .from('clients')
+      .delete()
+      .neq('id', '00000000-0000-0000-0000-000000000000');
+
+    if (error) throw new Error(error.message);
+
+    revalidatePath('/');
+    revalidatePath('/clients');
+    return { success: true };
+  } catch (error: any) {
+    console.error('Delete All Clients Action Error:', error);
+    return { success: false, error: error.message };
+  }
+}
+

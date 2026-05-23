@@ -1,9 +1,9 @@
 'use client';
 
-import { useState, useMemo, useTransition } from 'react';
+import { useState, useMemo, useTransition, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Search, X, Download, Upload, FileText, Clock, CheckCircle2, HelpCircle, RefreshCw, Plus, ChevronDown } from 'lucide-react';
+import { Search, X, Download, Upload, FileText, Clock, CheckCircle2, HelpCircle, RefreshCw, Plus, ChevronDown, Trash2 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import ClientNameCell from './ClientNameCell';
 import DeleteButton from './DeleteButton';
@@ -73,6 +73,59 @@ export default function ClientsDashboard({ clientsData }: ClientsDashboardProps)
   const [isUpdating, setIsUpdating] = useState(false);
   const [dobDay, setDobDay] = useState('');
   const [dobMonth, setDobMonth] = useState('');
+
+  // Developer setting backdoor for bulk profile deletion (triggered via double Ctrl + D)
+  const [showDeveloperDelete, setShowDeveloperDelete] = useState(false);
+
+  useEffect(() => {
+    let lastPressTime = 0;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'd') {
+        e.preventDefault();
+        const currentTime = Date.now();
+        if (currentTime - lastPressTime < 800) {
+          setShowDeveloperDelete((prev) => !prev);
+          lastPressTime = 0;
+        } else {
+          lastPressTime = currentTime;
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
+  const handleDeleteAll = async () => {
+    const confirm1 = window.confirm(
+      "⚠️ DANGER: You are about to delete ALL client profiles in the database. This action CANNOT be undone. Are you sure you want to proceed?"
+    );
+    if (!confirm1) return;
+
+    const confirm2 = window.prompt(
+      "Type 'DELETE ALL' to confirm the permanent destruction of all client profiles:"
+    );
+    if (confirm2 !== 'DELETE ALL') {
+      alert("❌ Confirmation failed. Operation canceled.");
+      return;
+    }
+
+    startTransition(async () => {
+      try {
+        const { deleteAllClients } = await import('../actions');
+        const res = await deleteAllClients();
+        if (res.success) {
+          alert("✅ Successfully deleted all client profiles!");
+          router.refresh();
+        } else {
+          alert(`❌ Failed to delete all profiles: ${res.error}`);
+        }
+      } catch (err: any) {
+        alert(`❌ Error: ${err.message}`);
+      }
+    });
+  };
   const [dobYear, setDobYear] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
@@ -361,6 +414,15 @@ export default function ClientsDashboard({ clientsData }: ClientsDashboardProps)
           )}
         </div>
         <div className="flex items-center gap-1.5">
+          {showDeveloperDelete && (
+            <button
+              onClick={handleDeleteAll}
+              className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-bold text-white bg-red-600 hover:bg-red-700 border border-red-700 rounded-lg transition-colors shadow-sm animate-in fade-in slide-in-from-top-1 duration-150 mr-1"
+            >
+              <Trash2 className="w-3.5 h-3.5 text-white" />
+              <span>Delete All Profiles</span>
+            </button>
+          )}
           <button
             onClick={() => {
               setEditingClient({ id: 'NEW', full_name: 'New Client' });
