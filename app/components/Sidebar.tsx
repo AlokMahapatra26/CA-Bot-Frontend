@@ -3,13 +3,15 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useState, useEffect } from 'react';
-import { FileText, Wifi, PanelLeftClose, PanelLeft, Users } from 'lucide-react';
+import { FileText, Wifi, PanelLeftClose, PanelLeft, Users, Landmark, Key } from 'lucide-react';
 import { siteData } from '@/app/site-data';
 
 const navItems = [
   { href: '/bot', label: 'WhatsApp Bot', icon: Wifi },
   { href: '/clients', label: 'Client Profiles', icon: Users },
   { href: '/', label: 'ITR Filing', icon: FileText },
+  { href: '/gst', label: 'GST Filing', icon: Landmark },
+  { href: '/dsc', label: 'DSC Management', icon: Key },
 ];
 
 export default function Sidebar() {
