@@ -297,21 +297,24 @@ export default function ClientDashboard({ clientsData }: ClientDashboardProps) {
                   <td className="px-2 py-2 border-r border-[#eee] text-center">
                     <div className="flex items-center justify-center gap-1.5">
                       {f && (
-                        f.filing_status === 'DOCS_VERIFIED' ? (
-                          <span className="text-[10px] font-medium text-green-600 font-mono">✓ Docs Verified</span>
-                        ) : (
+                        <>
                           <DownloadDropdown
                             filingId={f.id}
                             clientName={name}
                             recipientJid={client.whatsapp_jid || ''}
+                            clientPhone={client.phone_number || ''}
                             form16Url={f.form16_media_url}
                             bankStatementUrl={f.bank_statement_media_url}
                             capitalGainsUrl={f.capital_gains_media_url}
                             propertyDocsUrl={f.property_docs_media_url}
                             otherDocsUrl={f.other_docs_media_url}
+                            filingStatus={f.filing_status}
                             onPreview={(previewData) => setActivePreviewDoc(previewData)}
                           />
-                        )
+                          {f.filing_status === 'DOCS_VERIFIED' && (
+                            <span className="text-[9px] font-bold text-green-600 font-mono bg-green-50 border border-green-200 px-1 py-0.5 rounded" title="Documents fully verified">✓ Verified</span>
+                          )}
+                        </>
                       )}
                       <button
                         onClick={() => setActiveMsgClient({ id: client.id, name, jid: client.whatsapp_jid || '' })}

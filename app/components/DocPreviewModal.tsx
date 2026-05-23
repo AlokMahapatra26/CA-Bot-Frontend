@@ -120,7 +120,7 @@ export default function DocPreviewModal({ isOpen, onClose, doc }: DocPreviewModa
           <div>
             <div className="mb-6">
               <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Document Status</span>
-              {doc.filingStatus === 'DOCS_VERIFIED' ? (
+              {doc.filingStatus === 'DOCS_VERIFIED' || doc.filingStatus === 'FILED' ? (
                 <div className="inline-flex items-center gap-1 px-2 py-0.5 bg-green-50 text-green-700 border border-green-200 rounded font-semibold text-[10px] uppercase tracking-wider">
                   ✓ Verified & Approved
                 </div>
@@ -154,7 +154,7 @@ export default function DocPreviewModal({ isOpen, onClose, doc }: DocPreviewModa
             </div>
 
             {/* Action 2: Rejection Reason */}
-            {doc.filingStatus !== 'DOCS_VERIFIED' && (
+            {doc.filingStatus !== 'DOCS_VERIFIED' && doc.filingStatus !== 'FILED' && (
               <div className="mb-6">
                 <label className="text-[10.5px] font-bold text-slate-500 uppercase tracking-wider block mb-1.5">
                   Rejection Reason (Sent on WhatsApp)
@@ -171,7 +171,7 @@ export default function DocPreviewModal({ isOpen, onClose, doc }: DocPreviewModa
 
           {/* Bottom section: Action Buttons */}
           <div className="space-y-2.5 pt-4 border-t border-slate-200">
-            {doc.filingStatus === 'DOCS_VERIFIED' ? (
+            {doc.filingStatus === 'DOCS_VERIFIED' || doc.filingStatus === 'FILED' ? (
               <div className="flex items-center justify-center p-3 bg-green-50 border border-green-200 text-green-800 text-xs rounded font-medium gap-2">
                 <Check className="w-4 h-4 text-green-600 shrink-0" />
                 <span>Documents fully verified. No action needed!</span>

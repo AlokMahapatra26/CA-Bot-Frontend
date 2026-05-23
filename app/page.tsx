@@ -22,6 +22,7 @@ export default async function DashboardPage() {
         capital_gains_media_url,
         property_docs_media_url,
         other_docs_media_url,
+        notes,
         updated_at
       )
     `)

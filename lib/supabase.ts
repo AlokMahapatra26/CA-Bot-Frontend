@@ -49,6 +49,7 @@ export interface ItrFiling {
   capital_gains_media_url: string | null;
   property_docs_media_url: string | null;
   other_docs_media_url: string | null;
+  notes?: string | null;
   filing_status: string;
   updated_at: string;
   created_at: string;

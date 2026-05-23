@@ -2,18 +2,20 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { ChevronDown, Check, X, Loader2 } from 'lucide-react';
+import { ChevronDown, Check, X, Loader2, Download } from 'lucide-react';
 import { rejectDocument, acceptAllDocuments } from '../actions';
 
 interface DownloadDropdownProps {
   filingId: string;
   clientName: string;
   recipientJid: string;
+  clientPhone: string;
   form16Url: string | null;
   bankStatementUrl: string | null;
   capitalGainsUrl: string | null;
   propertyDocsUrl: string | null;
   otherDocsUrl: string | null;
+  filingStatus: string;
   onPreview: (doc: {
     url: string;
     label: string;
@@ -30,16 +32,18 @@ export default function DownloadDropdown({
   filingId,
   clientName,
   recipientJid,
+  clientPhone,
   form16Url,
   bankStatementUrl,
   capitalGainsUrl,
   propertyDocsUrl,
   otherDocsUrl,
+  filingStatus,
   onPreview,
 }: DownloadDropdownProps) {
   const router = useRouter();
   const [isOpen, setIsOpen] = useState(false);
-  const [loadingDoc, setLoadingDoc] = useState<DocType | 'ALL' | null>(null);
+  const [loadingDoc, setLoadingDoc] = useState<DocType | 'ALL' | 'ZIP' | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   // Close the dropdown when clicking outside
@@ -64,6 +68,50 @@ export default function DownloadDropdown({
       setIsOpen(false);
     } else {
       alert(`Failed to accept documents: ${result.error || 'Unknown error'}`);
+    }
+  };
+
+  const handleDownloadZip = async () => {
+    setLoadingDoc('ZIP');
+    try {
+      const JSZip = (await import('jszip')).default;
+      const zip = new JSZip();
+
+      // Download each active document as an ArrayBuffer
+      for (const doc of activeDocs) {
+        const proxyUrl = `/api/download?url=${encodeURIComponent(doc.url!)}`;
+        const response = await fetch(proxyUrl);
+        if (!response.ok) {
+          throw new Error(`Failed to download ${doc.label}`);
+        }
+        const arrayBuffer = await response.arrayBuffer();
+
+        const cleanUrl = doc.url!.split('?')[0];
+        const parts = cleanUrl.split('.');
+        const ext = parts.length > 1 ? parts.pop()?.toLowerCase() : 'pdf';
+        
+        const safeLabel = doc.label.replace(/\s+/g, '_');
+        zip.file(`${safeLabel}.${ext}`, arrayBuffer);
+      }
+
+      const content = await zip.generateAsync({ type: 'blob' });
+      const zipUrl = URL.createObjectURL(content);
+      
+      const tempLink = document.createElement('a');
+      tempLink.href = zipUrl;
+      
+      const safeClientName = clientName.replace(/[^a-zA-Z0-9]/g, '_');
+      const safePhone = clientPhone.replace(/[^0-9]/g, '');
+      tempLink.download = `${safeClientName}_${safePhone}.zip`;
+      
+      document.body.appendChild(tempLink);
+      tempLink.click();
+      document.body.removeChild(tempLink);
+      URL.revokeObjectURL(zipUrl);
+    } catch (error: any) {
+      alert(`❌ Failed to create ZIP: ${error.message}`);
+    } finally {
+      setLoadingDoc(null);
     }
   };
 
@@ -138,21 +186,26 @@ export default function DownloadDropdown({
                     type: doc.type,
                     clientName,
                     filingId,
-                    whatsappJid: recipientJid
+                    whatsappJid: recipientJid,
+                    filingStatus
                   })}
                   className="font-bold text-slate-800 hover:text-blue-600 transition-colors text-left truncate flex-1 hover:underline"
                   title={`Click to preview ${doc.label}`}
                 >
                   {doc.label}
                 </button>
-                <button
-                  onClick={() => handleReject(doc.type, doc.label, doc.url || undefined)}
-                  disabled={loadingDoc !== null}
-                  className="inline-flex items-center gap-1 text-[9px] px-2 py-0.5 bg-red-50 text-red-700 border border-red-200 font-bold uppercase tracking-wider hover:bg-red-100/60 disabled:opacity-50 rounded shrink-0"
-                >
-                  {loadingDoc === doc.type ? <Loader2 className="w-3 h-3 animate-spin" /> : <X className="w-3 h-3" />}
-                  Reject
-                </button>
+                {filingStatus !== 'DOCS_VERIFIED' && filingStatus !== 'FILED' ? (
+                  <button
+                    onClick={() => handleReject(doc.type, doc.label, doc.url || undefined)}
+                    disabled={loadingDoc !== null}
+                    className="inline-flex items-center gap-1 text-[9px] px-2 py-0.5 bg-red-50 text-red-700 border border-red-200 font-bold uppercase tracking-wider hover:bg-red-100/60 disabled:opacity-50 rounded shrink-0"
+                  >
+                    {loadingDoc === doc.type ? <Loader2 className="w-3 h-3 animate-spin" /> : <X className="w-3 h-3" />}
+                    Reject
+                  </button>
+                ) : (
+                  <span className="text-[10px] text-green-600 font-semibold font-mono tracking-wider shrink-0 bg-green-50/50 px-1 py-0.5 border border-green-100 rounded">✓ Verified</span>
+                )}
               </div>
             ))}
             {!anyDocUploaded && (
@@ -162,21 +215,35 @@ export default function DownloadDropdown({
             )}
           </div>
 
-          {/* APPROVE FILING DOCUMENTS */}
+          {/* APPROVE & DOWNLOAD FILING DOCUMENTS */}
           {anyDocUploaded && (
-            <div className="p-2 bg-slate-50 rounded-b-lg">
+            <div className="p-2 bg-slate-50 rounded-b-lg space-y-1.5 border-t border-slate-100">
               <button
-                onClick={handleAcceptAll}
+                onClick={handleDownloadZip}
                 disabled={loadingDoc !== null}
-                className="w-full inline-flex items-center justify-center gap-1.5 text-[10px] py-1.5 bg-green-50 text-green-700 border border-green-200 font-bold uppercase tracking-wider hover:bg-green-100 disabled:opacity-50 rounded-md"
+                className="w-full inline-flex items-center justify-center gap-1.5 text-[10px] py-1.5 bg-slate-100 border border-slate-200 hover:bg-slate-200 text-slate-700 font-bold uppercase tracking-wider disabled:opacity-50 rounded-md transition-colors cursor-pointer"
               >
-                {loadingDoc === 'ALL' ? (
+                {loadingDoc === 'ZIP' ? (
                   <Loader2 className="w-3.5 h-3.5 animate-spin" />
                 ) : (
-                  <Check className="w-3.5 h-3.5" />
+                  <Download className="w-3.5 h-3.5" />
                 )}
-                Approve Documents
+                Download All (ZIP)
               </button>
+              {filingStatus !== 'DOCS_VERIFIED' && filingStatus !== 'FILED' && (
+                <button
+                  onClick={handleAcceptAll}
+                  disabled={loadingDoc !== null}
+                  className="w-full inline-flex items-center justify-center gap-1.5 text-[10px] py-1.5 bg-green-50 text-green-700 border border-green-200 font-bold uppercase tracking-wider hover:bg-green-100 disabled:opacity-50 rounded-md transition-colors cursor-pointer"
+                >
+                  {loadingDoc === 'ALL' ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <Check className="w-3.5 h-3.5" />
+                  )}
+                  Approve Documents
+                </button>
+              )}
             </div>
           )}
         </div>
