@@ -110,7 +110,7 @@ export default function FilingStatusSelect({
         <select
           value={status}
           onChange={handleChange}
-          disabled={isUpdating}
+          disabled={isUpdating || status === 'FILED'}
           className={getSelectClasses()}
         >
           <option value="PENDING" className="bg-white text-slate-700">Pending</option>
@@ -132,7 +132,7 @@ export default function FilingStatusSelect({
                 clientName,
                 filingId: id,
                 whatsappJid,
-                filingStatus: 'DOCS_VERIFIED' // locks preview to prevent rejection inputs
+                filingStatus: 'FILED'
               })}
               className="inline-flex items-center gap-1 text-[9.5px] px-1.5 py-0.5 bg-slate-50 border border-slate-200 hover:bg-slate-100 hover:border-slate-300 text-slate-600 font-semibold uppercase tracking-wider rounded transition-colors"
               title="View uploaded ITR-V Receipt"
