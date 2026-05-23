@@ -6,7 +6,6 @@ All notable changes to the CA-bOt Frontend client dashboard will be documented i
 ### Added
 - **Multi-Dimensional Filters Bar**:
   - Designed and built a premium, monotone multi-dimensional filter bar right under the client profiles toolbar.
-  - **Reg. Stage Dropdown**: Filter clients by current bot onboarding stage (Name, Phone, DOB, Email, PAN, Aadhaar, Docs Submitted, or Registered).
   - **Account Status Dropdown**: Filter clients by status (Pending Approval, Approved, Suspended).
   - **Services Dropdown**: Filter by service type (Has Active ITR or No Active Services).
   - **KYC Docs Dropdown**: Filter based on document status (PAN Uploaded/Missing, Aadhaar Uploaded/Missing, Both Uploaded, or Any Missing).
