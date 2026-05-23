@@ -487,3 +487,126 @@ export async function uploadItrvReceipt(filingId: string, formData: FormData) {
     return { success: false, error: error.message };
   }
 }
+
+export async function importClients(clients: Array<{ full_name: string; phone_number: string; email?: string }>) {
+  try {
+    const toInsert = clients.map(c => {
+      let phone = c.phone_number.replace(/\D/g, '');
+      if (phone.length === 10) {
+        phone = `91${phone}`;
+      }
+      const jid = phone ? `${phone}@s.whatsapp.net` : null;
+
+      return {
+        full_name: c.full_name.trim(),
+        phone_number: phone || null,
+        whatsapp_jid: jid,
+        email: c.email?.trim().toLowerCase() || null,
+        bot_status: 'REGISTERED',
+        account_status: 'APPROVED',
+      };
+    });
+
+    const { error } = await serverSupabase
+      .from('clients')
+      .insert(toInsert);
+
+    if (error) throw new Error(error.message);
+
+    revalidatePath('/clients');
+    return { success: true };
+  } catch (error: any) {
+    console.error('Import Clients Error:', error);
+    return { success: false, error: error.message };
+  }
+}
+
+export async function updateClientProfile(clientId: string, updates: {
+  full_name: string;
+  phone_number: string;
+  email?: string | null;
+  date_of_birth?: string | null;
+  account_status?: string;
+  bot_status?: string;
+}) {
+  try {
+    let phone = updates.phone_number.replace(/\D/g, '');
+    if (phone.length === 10) {
+      phone = `91${phone}`;
+    }
+    const jid = phone ? `${phone}@s.whatsapp.net` : null;
+
+    const { error } = await serverSupabase
+      .from('clients')
+      .update({
+        full_name: updates.full_name.trim(),
+        phone_number: phone || null,
+        whatsapp_jid: jid,
+        email: updates.email?.trim().toLowerCase() || null,
+        date_of_birth: updates.date_of_birth || null,
+        account_status: updates.account_status || 'PENDING',
+        bot_status: updates.bot_status || 'REGISTERED',
+      })
+      .eq('id', clientId);
+
+    if (error) throw new Error(error.message);
+
+    revalidatePath('/clients');
+    revalidatePath('/');
+    return { success: true };
+  } catch (error: any) {
+    console.error('Update Client Profile Error:', error);
+    return { success: false, error: error.message };
+  }
+}
+
+export async function uploadClientDoc(clientId: string, docType: 'pan' | 'aadhaar', formData: FormData) {
+  try {
+    const file = formData.get('file') as File;
+    if (!file) throw new Error('No file provided');
+
+    const bytes = await file.arrayBuffer();
+    const buffer = Buffer.from(bytes);
+
+    const timestamp = Date.now();
+    const rawExtension = file.name.split('.').pop() || 'pdf';
+    const extension = rawExtension.toLowerCase();
+    const cleanFileName = `${docType}_${clientId}_${timestamp}.${extension}`;
+    const filePath = `kyc_documents/${cleanFileName}`;
+
+    const { error: uploadErr } = await serverSupabase.storage
+      .from('itr-documents')
+      .upload(filePath, buffer, {
+        contentType: file.type || 'application/pdf',
+        upsert: true
+      });
+
+    if (uploadErr) {
+      throw new Error(`Failed to upload file to storage: ${uploadErr.message}`);
+    }
+
+    const { data: publicUrlData } = serverSupabase.storage
+      .from('itr-documents')
+      .getPublicUrl(filePath);
+
+    const publicUrl = publicUrlData.publicUrl;
+
+    const dbField = docType === 'pan' ? 'pan_media_url' : 'aadhaar_media_url';
+    const { error: dbErr } = await serverSupabase
+      .from('clients')
+      .update({
+        [dbField]: publicUrl
+      })
+      .eq('id', clientId);
+
+    if (dbErr) throw new Error(dbErr.message);
+
+    revalidatePath('/clients');
+    revalidatePath('/');
+    return { success: true, url: publicUrl };
+  } catch (error: any) {
+    console.error('Upload Client KYC Error:', error);
+    return { success: false, error: error.message };
+  }
+}
+
