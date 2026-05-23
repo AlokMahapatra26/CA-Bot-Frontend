@@ -8,8 +8,8 @@ import { siteData } from '@/app/site-data';
 
 const navItems = [
   { href: '/bot', label: 'WhatsApp Bot', icon: Wifi },
-  { href: '/', label: 'ITR Filing', icon: FileText },
   { href: '/clients', label: 'Client Profiles', icon: Users },
+  { href: '/', label: 'ITR Filing', icon: FileText },
 ];
 
 export default function Sidebar() {

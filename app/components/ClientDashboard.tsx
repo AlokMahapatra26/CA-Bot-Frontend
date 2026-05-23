@@ -1,8 +1,9 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useTransition } from 'react';
 import Link from 'next/link';
-import { CheckCircle2, Clock, Download, Search, X, FileText, Bell } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { CheckCircle2, Clock, Download, Search, X, FileText, Bell, RefreshCw } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import DeleteButton from './DeleteButton';
 import FilingStatusSelect from './FilingStatusSelect';
@@ -28,29 +29,87 @@ const renderStatus = (status: string) => {
       </span>
     );
   }
+  if (status === 'SERVICE_MENU') {
+    return (
+      <span className="inline-flex items-center gap-1 text-[11px] font-medium text-blue-600">
+        <Clock className="w-3 h-3" /> Service Selection
+      </span>
+    );
+  }
+  // Clean up status label: AWAITING_BANK_NAME → "Bank Name"
+  const label = status
+    .replace('AWAITING_', '')
+    .replace(/_/g, ' ')
+    .replace(/\b\w/g, c => c.toUpperCase());
   return (
     <span className="inline-flex items-center gap-1 text-[11px] font-medium text-amber-600">
-      <Clock className="w-3 h-3" /> {status.replace('AWAITING_', '').replace('_', ' ')}
+      <Clock className="w-3 h-3" /> {label}
     </span>
   );
 };
 
-const renderDocLink = (url: string | null, clientName: string, docType: string) => {
-  if (!url) return <span className="text-[#ccc]">—</span>;
-  const ext = getExtension(url);
-  const filename = `${clientName.replace(/[^a-zA-Z0-9]/g, '_')}_${docType}.${ext}`;
-  const downloadUrl = `/api/download?url=${encodeURIComponent(url)}&filename=${encodeURIComponent(filename)}`;
+
+const renderIncomeSource = (source: string | null) => {
+  if (!source) return <span className="text-[#ccc]">—</span>;
+  const labels: Record<string, string> = {
+    SALARIED: '👔 Salaried',
+    BUSINESS: '💼 Business',
+    INVESTOR: '📈 Investor',
+    PROPERTY: '🏠 Property',
+  };
+  return <span className="font-semibold text-slate-700 text-[11px]">{labels[source] || source}</span>;
+};
+
+const renderFilingDocs = (f: any, clientName: string) => {
+  if (!f) return <span className="text-[#ccc]">—</span>;
+  const docs = [];
+  if (f.form16_media_url) docs.push({ url: f.form16_media_url, label: 'Form 16' });
+  if (f.bank_statement_media_url) docs.push({ url: f.bank_statement_media_url, label: 'Bank Statement' });
+  if (f.capital_gains_media_url) docs.push({ url: f.capital_gains_media_url, label: 'Capital Gains' });
+  if (f.property_docs_media_url) docs.push({ url: f.property_docs_media_url, label: 'Property Deeds' });
+  if (f.other_docs_media_url) docs.push({ url: f.other_docs_media_url, label: 'Other Doc' });
+
+  if (docs.length === 0) {
+    return (
+      <span className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 bg-amber-50 text-amber-700 border border-amber-100 rounded font-semibold uppercase tracking-wider">
+        <Clock className="w-2.5 h-2.5" /> Awaiting Documents
+      </span>
+    );
+  }
+
   return (
-    <a href={downloadUrl} className="inline-flex items-center gap-1 text-[11px] text-blue-600 hover:underline" title="Download">
-      <FileText className="w-3 h-3" /> {docType}
-    </a>
+    <div className="flex flex-wrap gap-1">
+      {docs.map((doc, idx) => {
+        const ext = getExtension(doc.url);
+        const filename = `${clientName.replace(/[^a-zA-Z0-9]/g, '_')}_${doc.label.replace(/\s/g, '_')}.${ext}`;
+        const downloadUrl = `/api/download?url=${encodeURIComponent(doc.url)}&filename=${encodeURIComponent(filename)}`;
+        return (
+          <a
+            key={idx}
+            href={downloadUrl}
+            className="inline-flex items-center gap-1 text-[10.5px] px-2 py-0.5 bg-blue-50 text-blue-700 border border-blue-100 hover:bg-blue-100 hover:text-blue-800 transition-all rounded font-medium"
+            title={`Download ${doc.label}`}
+          >
+            <FileText className="w-3 h-3 text-blue-500" /> {doc.label}
+          </a>
+        );
+      })}
+    </div>
   );
 };
 
 export default function ClientDashboard({ clientsData }: ClientDashboardProps) {
+  const router = useRouter();
+  const [isPending, startTransition] = useTransition();
   const [query, setQuery] = useState('');
   const [activeMsgClient, setActiveMsgClient] = useState<{ id: string; name: string; jid: string } | null>(null);
   const [customMsgText, setCustomMsgText] = useState('');
+
+  const handleRefresh = () => {
+    startTransition(() => {
+      router.refresh();
+    });
+  };
   const [sendingMsg, setSendingMsg] = useState(false);
 
   const filtered = useMemo(() => {
@@ -98,6 +157,14 @@ export default function ClientDashboard({ clientsData }: ClientDashboardProps) {
               </button>
             )}
           </div>
+          <button
+            onClick={handleRefresh}
+            disabled={isPending}
+            title="Refresh Data"
+            className="inline-flex items-center justify-center p-1.5 text-[#555] bg-white border border-[#ddd] rounded-lg hover:border-[#aaa] hover:text-[#111] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${isPending ? 'animate-spin text-[#888]' : ''}`} />
+          </button>
           <span className="text-[11px] text-[#999]">{filtered.length} records</span>
         </div>
         <div className="flex items-center gap-2">
@@ -122,20 +189,19 @@ export default function ClientDashboard({ clientsData }: ClientDashboardProps) {
           <thead className="sticky top-0 z-10">
             <tr className="bg-[#f5f5f5] border-b border-[#e0e0e0] text-[11px] font-semibold text-[#666] uppercase tracking-wide">
               <th className="px-3 py-2 border-r border-[#e0e0e0] w-[170px]">Name</th>
-              <th className="px-3 py-2 border-r border-[#e0e0e0] w-[130px]">Phone</th>
-              <th className="px-3 py-2 border-r border-[#e0e0e0] w-[80px]">FY</th>
-              <th className="px-3 py-2 border-r border-[#e0e0e0] w-[150px]">Bot Status</th>
-              <th className="px-3 py-2 border-r border-[#e0e0e0] w-[100px]">PAN</th>
-              <th className="px-3 py-2 border-r border-[#e0e0e0] w-[100px]">Aadhaar</th>
-              <th className="px-3 py-2 border-r border-[#e0e0e0] w-[100px]">Form 16</th>
+              <th className="px-3 py-2 border-r border-[#e0e0e0] w-[120px]">Phone</th>
+              <th className="px-3 py-2 border-r border-[#e0e0e0] w-[70px]">FY</th>
+              <th className="px-3 py-2 border-r border-[#e0e0e0] w-[140px]">Bot Status</th>
+              <th className="px-3 py-2 border-r border-[#e0e0e0] w-[110px]">Income Source</th>
+              <th className="px-3 py-2 border-r border-[#e0e0e0] w-[260px]">ITR Documents</th>
               <th className="px-3 py-2 border-r border-[#e0e0e0] w-[140px]">Filing Status</th>
-              <th className="px-3 py-2 border-r border-[#e0e0e0] w-[240px] text-center">Actions</th>
+              <th className="px-3 py-2 border-r border-[#e0e0e0] w-[220px] text-center">Actions</th>
               <th className="px-3 py-2 w-[120px] text-right">Updated</th>
             </tr>
           </thead>
           <tbody>
             {filtered.length === 0 && (
-              <tr><td colSpan={10} className="px-3 py-6 text-center text-[12px] text-[#aaa]">
+              <tr><td colSpan={9} className="px-3 py-6 text-center text-[12px] text-[#aaa]">
                 {query ? `No results for "${query}"` : 'No clients yet.'}
               </td></tr>
             )}
@@ -152,9 +218,8 @@ export default function ClientDashboard({ clientsData }: ClientDashboardProps) {
                   <td className="px-3 py-2 border-r border-[#eee]">{phone}</td>
                   <td className="px-3 py-2 border-r border-[#eee] font-mono text-[11px] text-[#555]">{f?.fy_year || '—'}</td>
                   <td className="px-3 py-2 border-r border-[#eee]">{f ? renderStatus(f.status) : <span className="text-[#ccc]">—</span>}</td>
-                  <td className="px-3 py-2 border-r border-[#eee]">{renderDocLink(client.pan_media_url, name, 'PAN')}</td>
-                  <td className="px-3 py-2 border-r border-[#eee]">{renderDocLink(client.aadhaar_media_url, name, 'Aadhaar')}</td>
-                  <td className="px-3 py-2 border-r border-[#eee]">{f ? renderDocLink(f.form16_media_url, name, 'Form16') : <span className="text-[#ccc]">—</span>}</td>
+                  <td className="px-3 py-2 border-r border-[#eee]">{f ? renderIncomeSource(f.income_source) : <span className="text-[#ccc]">—</span>}</td>
+                  <td className="px-3 py-2 border-r border-[#eee]">{f ? renderFilingDocs(f, name) : <span className="text-[#ccc]">—</span>}</td>
                   <td className="px-3 py-2 border-r border-[#eee]">
                     {f ? <FilingStatusSelect id={f.id} currentStatus={f.filing_status} /> : <span className="text-[#ccc]">—</span>}
                   </td>
@@ -171,6 +236,10 @@ export default function ClientDashboard({ clientsData }: ClientDashboardProps) {
                             panUrl={client.pan_media_url}
                             aadhaarUrl={client.aadhaar_media_url}
                             form16Url={f.form16_media_url}
+                            bankStatementUrl={f.bank_statement_media_url}
+                            capitalGainsUrl={f.capital_gains_media_url}
+                            propertyDocsUrl={f.property_docs_media_url}
+                            otherDocsUrl={f.other_docs_media_url}
                           />
                         )
                       )}

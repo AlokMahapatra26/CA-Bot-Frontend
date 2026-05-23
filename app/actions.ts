@@ -30,23 +30,116 @@ export async function deleteFiling(id: string) {
 
 export async function deleteClient(id: string) {
   try {
-    // Delete the client. Any related itr_filings will be cascade-deleted by Supabase
-    // if the foreign key has ON DELETE CASCADE (which it usually should). 
-    // Even if not, we delete the client to clear their data.
     const { error } = await serverSupabase
       .from('clients')
       .delete()
       .eq('id', id);
 
-    if (error) {
-      throw new Error(error.message);
-    }
+    if (error) throw new Error(error.message);
 
     revalidatePath('/');
     revalidatePath('/clients');
     return { success: true };
   } catch (error: any) {
     console.error('Delete Client Action Error:', error);
+    return { success: false, error: error.message };
+  }
+}
+
+export async function approveClient(clientId: string) {
+  try {
+    // 1. Fetch client to get their JID and name for WhatsApp notification
+    const { data: client, error: fetchErr } = await serverSupabase
+      .from('clients')
+      .select('whatsapp_jid, full_name')
+      .eq('id', clientId)
+      .single();
+
+    if (fetchErr || !client) throw new Error(fetchErr?.message || 'Client not found');
+
+    // 2. Update account_status to APPROVED and bot_status to REGISTERED
+    const { error: updateErr } = await serverSupabase
+      .from('clients')
+      .update({ account_status: 'APPROVED', bot_status: 'REGISTERED' })
+      .eq('id', clientId);
+
+    if (updateErr) throw new Error(updateErr.message);
+
+    // 3. Send WhatsApp notification to the client
+    if (client.whatsapp_jid) {
+      const name = client.full_name || 'there';
+      try {
+        await fetch('http://localhost:4000/api/send-message', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            jid: client.whatsapp_jid,
+            text:
+              `✅ *Account Approved!*\n\n` +
+              `Dear *${name}*, your account with *DAV Labs* has been verified and approved by our CA team! 🎉\n\n` +
+              `You can now access our services. Reply *hi* to get started!\n\n` +
+              `Available services:\n` +
+              `*1* — 📊 ITR Filing (Income Tax Return)\n\n` +
+              `_More services coming soon!_`
+          }),
+        });
+      } catch (e) {
+        console.warn('WhatsApp notification failed (non-critical):', e);
+      }
+    }
+
+    revalidatePath('/clients');
+    return { success: true };
+  } catch (error: any) {
+    console.error('Approve Client Error:', error);
+    return { success: false, error: error.message };
+  }
+}
+
+export async function rejectClientAccount(clientId: string, reason?: string) {
+  try {
+    // 1. Fetch client
+    const { data: client, error: fetchErr } = await serverSupabase
+      .from('clients')
+      .select('whatsapp_jid, full_name')
+      .eq('id', clientId)
+      .single();
+
+    if (fetchErr || !client) throw new Error(fetchErr?.message || 'Client not found');
+
+    // 2. Update account_status to REJECTED
+    const { error: updateErr } = await serverSupabase
+      .from('clients')
+      .update({ account_status: 'REJECTED' })
+      .eq('id', clientId);
+
+    if (updateErr) throw new Error(updateErr.message);
+
+    // 3. Notify client on WhatsApp
+    if (client.whatsapp_jid) {
+      const name = client.full_name || 'User';
+      const reasonText = reason ? `\n\n*Reason:* ${reason}` : '';
+      try {
+        await fetch('http://localhost:4000/api/send-message', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            jid: client.whatsapp_jid,
+            text:
+              `❌ *Account Registration Rejected*\n\n` +
+              `Dear *${name}*, unfortunately your account registration has been rejected by our CA team.${reasonText}\n\n` +
+              `Please contact us for more details or to resubmit your documents.`
+          }),
+        });
+      } catch (e) {
+        console.warn('WhatsApp notification failed (non-critical):', e);
+      }
+    }
+
+    revalidatePath('/clients');
+    return { success: true };
+  } catch (error: any) {
+    console.error('Reject Client Error:', error);
     return { success: false, error: error.message };
   }
 }
@@ -74,7 +167,7 @@ export async function rejectDocument(
   filingId: string,
   clientName: string,
   recipientJid: string,
-  docType: 'PAN' | 'Aadhaar' | 'Form16'
+  docType: 'PAN' | 'Aadhaar' | 'Form16' | 'BankStatement' | 'CapitalGains' | 'PropertyDocs' | 'OtherDocs'
 ) {
   try {
     // 1. Map document types to DB columns and bot states
@@ -93,6 +186,26 @@ export async function rejectDocument(
         column: 'form16_media_url',
         state: 'AWAITING_FORM16',
         label: 'Form 16'
+      },
+      BankStatement: {
+        column: 'bank_statement_media_url',
+        state: 'AWAITING_BANK_STATEMENT',
+        label: 'Bank Statement'
+      },
+      CapitalGains: {
+        column: 'capital_gains_media_url',
+        state: 'AWAITING_CAPITAL_GAINS',
+        label: 'Capital Gains Statement'
+      },
+      PropertyDocs: {
+        column: 'property_docs_media_url',
+        state: 'AWAITING_PROPERTY_DOCS',
+        label: 'Property Sale/Purchase details'
+      },
+      OtherDocs: {
+        column: 'other_docs_media_url',
+        state: 'AWAITING_OTHER_DOCS',
+        label: 'Other Supporting Documents'
       }
     };
 
@@ -136,11 +249,11 @@ export async function rejectDocument(
         throw new Error(`Filing update failed: ${filingErr.message}`);
       }
     } else {
-      // Form16 is on the 'itr_filings' table
+      // filing documents are on the 'itr_filings' table
       const { error: filingErr } = await serverSupabase
         .from('itr_filings')
         .update({
-          form16_media_url: null,
+          [doc.column]: null,
           status: doc.state
         })
         .eq('id', filingId);

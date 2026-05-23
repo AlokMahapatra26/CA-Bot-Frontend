@@ -11,7 +11,13 @@ interface DownloadDropdownProps {
   panUrl: string | null;
   aadhaarUrl: string | null;
   form16Url: string | null;
+  bankStatementUrl: string | null;
+  capitalGainsUrl: string | null;
+  propertyDocsUrl: string | null;
+  otherDocsUrl: string | null;
 }
+
+type DocType = 'Form16' | 'BankStatement' | 'CapitalGains' | 'PropertyDocs' | 'OtherDocs';
 
 export default function DownloadDropdown({
   filingId,
@@ -20,9 +26,13 @@ export default function DownloadDropdown({
   panUrl,
   aadhaarUrl,
   form16Url,
+  bankStatementUrl,
+  capitalGainsUrl,
+  propertyDocsUrl,
+  otherDocsUrl,
 }: DownloadDropdownProps) {
   const [isOpen, setIsOpen] = useState(false);
-  const [loadingDoc, setLoadingDoc] = useState<'PAN' | 'Aadhaar' | 'Form16' | 'ALL' | null>(null);
+  const [loadingDoc, setLoadingDoc] = useState<DocType | 'ALL' | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   // Close the dropdown when clicking outside
@@ -42,14 +52,14 @@ export default function DownloadDropdown({
     setLoadingDoc(null);
 
     if (result.success) {
-      alert(`✅ All documents have been accepted and a verification confirmation has been sent to the client's WhatsApp.`);
+      alert(`✅ Documents have been accepted and a verification confirmation has been sent to the client's WhatsApp.`);
       setIsOpen(false);
     } else {
       alert(`Failed to accept documents: ${result.error || 'Unknown error'}`);
     }
   };
 
-  const handleReject = async (docType: 'PAN' | 'Aadhaar' | 'Form16', docLabel: string) => {
+  const handleReject = async (docType: DocType, docLabel: string) => {
     const confirmed = window.confirm(
       `Are you sure you want to REJECT the ${docLabel}? \n\nThis will permanently delete the uploaded document from Supabase and automatically notify the client on WhatsApp to upload it again.`
     );
@@ -68,8 +78,16 @@ export default function DownloadDropdown({
     }
   };
 
-  const allDocsUploaded = panUrl && aadhaarUrl && form16Url;
-  const anyDocUploaded = panUrl || aadhaarUrl || form16Url;
+  const docItems = [
+    { type: 'Form16' as DocType, label: 'Form 16', url: form16Url },
+    { type: 'BankStatement' as DocType, label: 'Bank Statement', url: bankStatementUrl },
+    { type: 'CapitalGains' as DocType, label: 'Capital Gains', url: capitalGainsUrl },
+    { type: 'PropertyDocs' as DocType, label: 'Property Deeds', url: propertyDocsUrl },
+    { type: 'OtherDocs' as DocType, label: 'Other Document', url: otherDocsUrl },
+  ];
+
+  const activeDocs = docItems.filter(item => !!item.url);
+  const anyDocUploaded = activeDocs.length > 0;
 
   return (
     <div className="relative inline-block text-left" ref={dropdownRef}>
@@ -83,63 +101,35 @@ export default function DownloadDropdown({
       </button>
 
       {isOpen && (
-        <div className="absolute right-0 mt-1 w-56 bg-white border border-slate-200 shadow-lg z-50 rounded-lg divide-y divide-slate-100">
+        <div className="absolute right-0 mt-1 w-64 bg-white border border-slate-200 shadow-lg z-50 rounded-lg divide-y divide-slate-100">
           <div className="px-3 py-1.5 bg-slate-50 text-[10px] font-bold text-slate-500 uppercase tracking-wider rounded-t-lg">
-            Review Submitted Documents
+            Review Submitted ITR Docs
           </div>
 
-          {/* PAN CARD SECTION */}
-          <div className="px-3 py-2.5 text-xs font-medium flex items-center justify-between">
-            <span className={panUrl ? "font-bold text-slate-900" : "text-slate-400"}>1. PAN Card</span>
-            {panUrl ? (
-              <button
-                onClick={() => handleReject('PAN', 'PAN Card')}
-                disabled={loadingDoc !== null}
-                className="inline-flex items-center gap-1 text-[9px] px-2 py-0.5 bg-red-50 text-red-700 border border-red-200 font-bold uppercase tracking-wider hover:bg-red-100/60 disabled:opacity-50 rounded"
-              >
-                {loadingDoc === 'PAN' ? <Loader2 className="w-3 h-3 animate-spin" /> : <X className="w-3 h-3" />}
-                Reject
-              </button>
-            ) : (
-              <span className="text-[10px] font-bold text-amber-600 uppercase bg-amber-50 px-1 border border-amber-100">Awaiting</span>
+          <div className="max-h-60 overflow-y-auto divide-y divide-slate-100">
+            {activeDocs.map((doc) => (
+              <div key={doc.type} className="px-3 py-2 text-[12px] font-medium flex items-center justify-between gap-4">
+                <span className="font-bold text-slate-800 truncate" title={doc.label}>
+                  {doc.label}
+                </span>
+                <button
+                  onClick={() => handleReject(doc.type, doc.label)}
+                  disabled={loadingDoc !== null}
+                  className="inline-flex items-center gap-1 text-[9px] px-2 py-0.5 bg-red-50 text-red-700 border border-red-200 font-bold uppercase tracking-wider hover:bg-red-100/60 disabled:opacity-50 rounded shrink-0"
+                >
+                  {loadingDoc === doc.type ? <Loader2 className="w-3 h-3 animate-spin" /> : <X className="w-3 h-3" />}
+                  Reject
+                </button>
+              </div>
+            ))}
+            {!anyDocUploaded && (
+              <div className="px-3 py-4 text-center text-xs text-slate-400 font-medium italic">
+                No documents uploaded yet
+              </div>
             )}
           </div>
 
-          {/* AADHAAR CARD SECTION */}
-          <div className="px-3 py-2.5 text-xs font-medium flex items-center justify-between">
-            <span className={aadhaarUrl ? "font-bold text-slate-900" : "text-slate-400"}>2. Aadhaar Card</span>
-            {aadhaarUrl ? (
-              <button
-                onClick={() => handleReject('Aadhaar', 'Aadhaar Card')}
-                disabled={loadingDoc !== null}
-                className="inline-flex items-center gap-1 text-[9px] px-2 py-0.5 bg-red-50 text-red-700 border border-red-200 font-bold uppercase tracking-wider hover:bg-red-100/60 disabled:opacity-50 rounded"
-              >
-                {loadingDoc === 'Aadhaar' ? <Loader2 className="w-3 h-3 animate-spin" /> : <X className="w-3 h-3" />}
-                Reject
-              </button>
-            ) : (
-              <span className="text-[10px] font-bold text-amber-600 uppercase bg-amber-50 px-1 border border-amber-100">Awaiting</span>
-            )}
-          </div>
-
-          {/* FORM 16 SECTION */}
-          <div className="px-3 py-2.5 text-xs font-medium flex items-center justify-between">
-            <span className={form16Url ? "font-bold text-slate-900" : "text-slate-400"}>3. Form 16</span>
-            {form16Url ? (
-              <button
-                onClick={() => handleReject('Form16', 'Form 16')}
-                disabled={loadingDoc !== null}
-                className="inline-flex items-center gap-1 text-[9px] px-2 py-0.5 bg-red-50 text-red-700 border border-red-200 font-bold uppercase tracking-wider hover:bg-red-100/60 disabled:opacity-50 rounded"
-              >
-                {loadingDoc === 'Form16' ? <Loader2 className="w-3 h-3 animate-spin" /> : <X className="w-3 h-3" />}
-                Reject
-              </button>
-            ) : (
-              <span className="text-[10px] font-bold text-amber-600 uppercase bg-amber-50 px-1 border border-amber-100">Awaiting</span>
-            )}
-          </div>
-
-          {/* ACCEPT ALL BUTTON */}
+          {/* APPROVE FILING DOCUMENTS */}
           {anyDocUploaded && (
             <div className="p-2 bg-slate-50 rounded-b-lg">
               <button
@@ -152,7 +142,7 @@ export default function DownloadDropdown({
                 ) : (
                   <Check className="w-3.5 h-3.5" />
                 )}
-                {allDocsUploaded ? 'Accept All Documents' : 'Accept Uploaded Docs'}
+                Approve Documents
               </button>
             </div>
           )}

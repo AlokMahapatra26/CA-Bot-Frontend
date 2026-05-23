@@ -31,5 +31,10 @@ export default async function DashboardPage() {
     );
   }
 
-  return <ClientDashboard clientsData={clientsData || []} />;
+  // Only display clients who have actively opted in for ITR filing
+  const activeItrClients = (clientsData || []).filter(
+    (client: any) => client.itr_filings && client.itr_filings.length > 0
+  );
+
+  return <ClientDashboard clientsData={activeItrClients} />;
 }
