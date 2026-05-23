@@ -2,12 +2,12 @@
 
 import { useState, useMemo, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import { Search, X, Download, Upload, FileText, Clock, CheckCircle2, HelpCircle, RefreshCw } from 'lucide-react';
+import { Search, X, Download, Upload, FileText, Clock, CheckCircle2, HelpCircle, RefreshCw, Plus, ChevronDown } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import ClientNameCell from './ClientNameCell';
 import DeleteButton from './DeleteButton';
 import AccountApprovalButton from './AccountApprovalButton';
-import { importClients, updateClientProfile, uploadClientDoc } from '../actions';
+import { importClients, updateClientProfile, uploadClientDoc, createClientProfile } from '../actions';
 
 interface ClientsDashboardProps {
   clientsData: any[];
@@ -19,17 +19,6 @@ const getExtension = (url: string) => {
   } catch { return 'pdf'; }
 };
 
-const renderDocLink = (url: string | null, clientName: string, docType: string) => {
-  if (!url) return <span className="text-[#ccc]">—</span>;
-  const ext = getExtension(url);
-  const filename = `${clientName.replace(/[^a-zA-Z0-9]/g, '_')}_${docType}.${ext}`;
-  const downloadUrl = `/api/download?url=${encodeURIComponent(url)}&filename=${encodeURIComponent(filename)}`;
-  return (
-    <a href={downloadUrl} className="inline-flex items-center gap-1 text-[11px] text-blue-600 hover:underline" title="Download">
-      <FileText className="w-3 h-3" /> {docType}
-    </a>
-  );
-};
 
 const renderBotStatus = (botStatus: string | null) => {
   if (!botStatus) return <span className="text-[#ccc] text-[10px]">—</span>;
@@ -78,11 +67,14 @@ export default function ClientsDashboard({ clientsData }: ClientsDashboardProps)
   const [customMsgText, setCustomMsgText] = useState('');
   const [sendingMsg, setSendingMsg] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
+  const [showImportDropdown, setShowImportDropdown] = useState(false);
   const [editingClient, setEditingClient] = useState<any | null>(null);
   const [isUpdating, setIsUpdating] = useState(false);
   const [dobDay, setDobDay] = useState('');
   const [dobMonth, setDobMonth] = useState('');
   const [dobYear, setDobYear] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
   const [editForm, setEditForm] = useState<any>({
     full_name: '',
     phone_number: '',
@@ -91,6 +83,7 @@ export default function ClientsDashboard({ clientsData }: ClientsDashboardProps)
     account_status: '',
     bot_status: ''
   });
+  const [activePreviewDoc, setActivePreviewDoc] = useState<{ url: string; clientName: string; docType: string } | null>(null);
 
   const handleImportCSV = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -234,6 +227,17 @@ export default function ClientsDashboard({ clientsData }: ClientsDashboardProps)
     );
   }, [clientsData, query]);
 
+  // Reset to first page when search query changes
+  useMemo(() => {
+    setCurrentPage(1);
+  }, [query]);
+
+  const paginatedClients = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    const end = start + pageSize;
+    return filtered.slice(start, end);
+  }, [filtered, currentPage, pageSize]);
+
   const downloadTemplate = () => {
     const csvContent = "full_name,phone_number,email\nAlok Kumar,919876543210,alok@example.com\nJane Doe,919988776655,jane@example.com";
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
@@ -309,23 +313,62 @@ export default function ClientsDashboard({ clientsData }: ClientsDashboardProps)
         </div>
         <div className="flex items-center gap-1.5">
           <button
-            onClick={downloadTemplate}
-            className="text-[10px] text-slate-400 hover:text-slate-600 transition-colors underline font-medium mr-1"
-            title="Download CSV Template Structure"
+            onClick={() => {
+              setEditingClient({ id: 'NEW', full_name: 'New Client' });
+              setDobDay('');
+              setDobMonth('');
+              setDobYear('');
+              setEditForm({
+                full_name: '',
+                phone_number: '',
+                email: '',
+                date_of_birth: '',
+                account_status: 'APPROVED',
+                bot_status: 'REGISTERED'
+              });
+            }}
+            className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-medium text-[#555] bg-white border border-[#ddd] rounded-lg hover:border-[#aaa] transition-colors"
           >
-            Download Template
+            <Plus className="w-3 h-3 text-slate-500 font-bold" />
+            <span>Add Client</span>
           </button>
-          <label className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-medium text-[#555] bg-white border border-[#ddd] rounded-lg hover:border-[#aaa] transition-colors cursor-pointer">
-            <Download className="w-3 h-3 text-slate-500 font-bold" />
-            <span>{isImporting ? 'Importing...' : 'Import CSV'}</span>
-            <input
-              type="file"
-              accept=".csv"
-              className="hidden"
-              onChange={handleImportCSV}
-              disabled={isImporting}
-            />
-          </label>
+          
+          <div className="relative">
+            <button
+              onClick={() => setShowImportDropdown(!showImportDropdown)}
+              className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-medium text-[#555] bg-white border border-[#ddd] rounded-lg hover:border-[#aaa] transition-colors"
+            >
+              <Download className="w-3 h-3 text-slate-500 font-bold" />
+              <span>{isImporting ? 'Importing...' : 'Import CSV'}</span>
+              <ChevronDown className="w-3 h-3 text-slate-400" />
+            </button>
+            {showImportDropdown && (
+              <div className="absolute right-0 mt-1 z-30 w-48 bg-white border border-[#ddd] rounded-lg shadow-sm py-1 text-[11px] font-medium text-[#555]">
+                <button
+                  onClick={() => {
+                    downloadTemplate();
+                    setShowImportDropdown(false);
+                  }}
+                  className="w-full text-left px-3 py-1.5 hover:bg-[#f5f5f5] text-[#555] transition-colors border-b border-[#eee]"
+                >
+                  Download CSV Template
+                </button>
+                <label className="w-full text-left px-3 py-1.5 hover:bg-[#f5f5f5] text-[#555] transition-colors cursor-pointer flex items-center justify-between">
+                  <span>Upload & Import Clients</span>
+                  <input
+                    type="file"
+                    accept=".csv"
+                    className="hidden"
+                    onChange={(e) => {
+                      handleImportCSV(e);
+                      setShowImportDropdown(false);
+                    }}
+                    disabled={isImporting}
+                  />
+                </label>
+              </div>
+            )}
+          </div>
           <button
             onClick={exportCSV}
             className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-medium text-[#555] bg-white border border-[#ddd] rounded-lg hover:border-[#aaa] transition-colors"
@@ -360,7 +403,7 @@ export default function ClientsDashboard({ clientsData }: ClientsDashboardProps)
                 </td>
               </tr>
             )}
-            {filtered.map((client: any) => {
+            {paginatedClients.map((client: any) => {
               const name = client.full_name || 'Anonymous';
               const phone = client.phone_number ? `+${client.phone_number}` : '—';
               const isPendingApproval = client.bot_status === 'PENDING_APPROVAL';
@@ -387,7 +430,13 @@ export default function ClientsDashboard({ clientsData }: ClientsDashboardProps)
                   <td className="px-3 py-2 border-r border-[#eee] font-mono text-[11px] text-[#555] truncate" title={client.email || ''}>{client.email || '—'}</td>
                   <td className="px-3 py-2 border-r border-[#eee] whitespace-nowrap">
                     {client.pan_media_url ? (
-                      renderDocLink(client.pan_media_url, name, 'PAN')
+                      <button
+                        onClick={() => setActivePreviewDoc({ url: client.pan_media_url, clientName: name, docType: 'PAN' })}
+                        className="inline-flex items-center gap-1 text-[11px] text-blue-600 hover:underline"
+                        title="View PAN Card"
+                      >
+                        <FileText className="w-3.5 h-3.5" /> PAN
+                      </button>
                     ) : (
                       <label className="inline-flex items-center gap-1 cursor-pointer bg-slate-50 border border-slate-200 hover:bg-slate-100 hover:border-slate-300 text-slate-600 font-semibold px-2 py-0.5 rounded text-[10px] uppercase tracking-wider transition-colors">
                         <Upload className="w-2.5 h-2.5 text-slate-500" />
@@ -403,7 +452,13 @@ export default function ClientsDashboard({ clientsData }: ClientsDashboardProps)
                   </td>
                   <td className="px-3 py-2 border-r border-[#eee] whitespace-nowrap">
                     {client.aadhaar_media_url ? (
-                      renderDocLink(client.aadhaar_media_url, name, 'Aadhaar')
+                      <button
+                        onClick={() => setActivePreviewDoc({ url: client.aadhaar_media_url, clientName: name, docType: 'Aadhaar' })}
+                        className="inline-flex items-center gap-1 text-[11px] text-blue-600 hover:underline"
+                        title="View Aadhaar Card"
+                      >
+                        <FileText className="w-3.5 h-3.5" /> Aadhaar
+                      </button>
                     ) : (
                       <label className="inline-flex items-center gap-1 cursor-pointer bg-slate-50 border border-slate-200 hover:bg-slate-100 hover:border-slate-300 text-slate-600 font-semibold px-2 py-0.5 rounded text-[10px] uppercase tracking-wider transition-colors">
                         <Upload className="w-2.5 h-2.5 text-slate-500" />
@@ -476,6 +531,50 @@ export default function ClientsDashboard({ clientsData }: ClientsDashboardProps)
         </table>
       </div>
 
+      {/* Pagination Controls */}
+      <div className="h-[38px] bg-[#fafafa] border-t border-[#e0e0e0] px-4 flex items-center justify-between text-[11px] font-medium text-[#555] shrink-0">
+        <div className="flex items-center gap-2">
+          <span>Rows per page:</span>
+          <select
+            value={pageSize}
+            onChange={(e) => {
+              setPageSize(Number(e.target.value));
+              setCurrentPage(1);
+            }}
+            className="px-1.5 py-0.5 text-[11px] bg-white border border-[#ddd] rounded-md focus:outline-none focus:border-[#999] cursor-pointer font-semibold"
+          >
+            <option value={10}>10</option>
+            <option value={25}>25</option>
+            <option value={50}>50</option>
+            <option value={100}>100</option>
+          </select>
+        </div>
+
+        <div className="flex items-center gap-4">
+          <span>
+            Showing {filtered.length === 0 ? 0 : (currentPage - 1) * pageSize + 1}–
+            {Math.min(currentPage * pageSize, filtered.length)} of {filtered.length}
+          </span>
+          
+          <div className="flex items-center gap-1.5">
+            <button
+              onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+              disabled={currentPage === 1}
+              className="px-2.5 py-1 text-[11px] font-semibold text-[#555] bg-white border border-[#ddd] rounded-lg hover:border-[#aaa] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              Previous
+            </button>
+            <button
+              onClick={() => setCurrentPage(prev => Math.min(prev + 1, Math.ceil(filtered.length / pageSize)))}
+              disabled={currentPage >= Math.ceil(filtered.length / pageSize)}
+              className="px-2.5 py-1 text-[11px] font-semibold text-[#555] bg-white border border-[#ddd] rounded-lg hover:border-[#aaa] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              Next
+            </button>
+          </div>
+        </div>
+      </div>
+
       {/* Message Modal */}
       {activeMsgClient && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/35 backdrop-blur-[0.5px]">
@@ -533,7 +632,7 @@ export default function ClientsDashboard({ clientsData }: ClientsDashboardProps)
             {/* Header */}
             <div className="bg-[#fafafa] px-4 py-2.5 border-b border-[#e0e0e0] flex items-center justify-between">
               <span className="text-[12px] font-bold text-[#111] uppercase tracking-wider">
-                Edit Profile — {editingClient.full_name || 'Anonymous'}
+                {editingClient.id === 'NEW' ? 'Add New Client' : `Edit Profile — ${editingClient.full_name || 'Anonymous'}`}
               </span>
               <button
                 onClick={() => setEditingClient(null)}
@@ -557,13 +656,19 @@ export default function ClientsDashboard({ clientsData }: ClientsDashboardProps)
                   const formattedDob = dobDay && dobMonth && dobYear ? `${dobYear}-${dobMonth}-${dobDay}` : null;
                   const submissionData = { ...editForm, date_of_birth: formattedDob };
                   
-                  const res = await updateClientProfile(editingClient.id, submissionData);
+                  let res;
+                  if (editingClient.id === 'NEW') {
+                    res = await createClientProfile(submissionData);
+                  } else {
+                    res = await updateClientProfile(editingClient.id, submissionData);
+                  }
+                  
                   if (res.success) {
-                    alert('✅ Client profile updated successfully!');
+                    alert(editingClient.id === 'NEW' ? '✅ Client profile created successfully!' : '✅ Client profile updated successfully!');
                     setEditingClient(null);
                     router.refresh();
                   } else {
-                    alert(`❌ Failed to update client: ${res.error}`);
+                    alert(`❌ Action failed: ${res.error}`);
                   }
                 } catch (err: any) {
                   alert(`❌ Error updating profile: ${err.message}`);
@@ -695,6 +800,96 @@ export default function ClientsDashboard({ clientsData }: ClientsDashboardProps)
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Client Document Preview Modal */}
+      {activePreviewDoc && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-[2px] flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-2xl border border-slate-200 w-full max-w-4xl h-[85vh] flex flex-col md:flex-row overflow-hidden relative animate-in fade-in zoom-in-95 duration-150">
+            {/* Close Button */}
+            <button
+              onClick={() => setActivePreviewDoc(null)}
+              className="absolute top-3 right-3 bg-white/95 hover:bg-slate-100 border border-slate-200 text-slate-500 hover:text-slate-800 p-1.5 rounded-full transition-all z-20 shadow-sm"
+              title="Close"
+            >
+              <X className="w-4 h-4" />
+            </button>
+
+            {/* LEFT PANEL: Document Viewport (70%) */}
+            <div className="flex-1 bg-slate-100 p-6 flex flex-col items-center justify-center relative overflow-hidden h-[50vh] md:h-full">
+              {/* Header overlay for file title */}
+              <div className="absolute top-0 left-0 right-0 p-4 bg-slate-200/85 border-b border-slate-350 flex items-center justify-between text-slate-800 z-10">
+                <div>
+                  <span className="text-[10px] uppercase font-bold tracking-wider text-slate-500">Viewing KYC Document</span>
+                  <h2 className="text-xs font-bold truncate pr-16">{activePreviewDoc.docType} — {activePreviewDoc.clientName}</h2>
+                </div>
+              </div>
+
+              {/* Document Content */}
+              <div className="w-full h-full flex items-center justify-center pt-12 overflow-auto">
+                {activePreviewDoc.url.toLowerCase().includes('.pdf') || activePreviewDoc.url.toLowerCase().includes('pdf') ? (
+                  <iframe
+                    src={activePreviewDoc.url}
+                    className="w-full h-full border border-slate-300 bg-white rounded"
+                    title={activePreviewDoc.docType}
+                  />
+                ) : (
+                  <img
+                    src={activePreviewDoc.url}
+                    alt={activePreviewDoc.docType}
+                    className="max-w-full max-h-full object-contain border border-slate-300 bg-white rounded shadow-sm select-none"
+                  />
+                )}
+              </div>
+            </div>
+
+            {/* RIGHT PANEL: Info & Actions (30%) */}
+            <div className="w-full md:w-80 bg-white border-t md:border-t-0 md:border-l border-slate-200 p-6 flex flex-col justify-between overflow-y-auto">
+              <div>
+                <div className="mb-6">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Document Status</span>
+                  <div className="inline-flex items-center gap-1 px-2 py-0.5 bg-green-50 text-green-700 border border-green-200 rounded font-semibold text-[10px] uppercase tracking-wider">
+                    ✓ Uploaded KYC
+                  </div>
+                </div>
+
+                <div className="space-y-4 mb-6 border-b border-slate-200 pb-5">
+                  <div>
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Client Name</span>
+                    <span className="text-xs font-semibold text-slate-700">{activePreviewDoc.clientName}</span>
+                  </div>
+                  <div>
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Document Type</span>
+                    <span className="text-xs font-bold text-slate-800">{activePreviewDoc.docType}</span>
+                  </div>
+                </div>
+
+                {/* Download Button */}
+                <div className="mb-6">
+                  {(() => {
+                    const ext = activePreviewDoc.url.toLowerCase().includes('.pdf') || activePreviewDoc.url.toLowerCase().includes('pdf') ? 'pdf' : 'jpg';
+                    const filename = `${activePreviewDoc.clientName.replace(/[^a-zA-Z0-9]/g, '_')}_${activePreviewDoc.docType}.${ext}`;
+                    const downloadUrl = `/api/download?url=${encodeURIComponent(activePreviewDoc.url)}&filename=${encodeURIComponent(filename)}`;
+                    return (
+                      <a
+                        href={downloadUrl}
+                        className="w-full inline-flex items-center justify-center gap-2 py-2 px-4 bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700 text-xs font-semibold uppercase tracking-wider transition-all rounded"
+                      >
+                        <Download className="w-4 h-4 text-slate-500" />
+                        Download Document
+                      </a>
+                    );
+                  })()}
+                </div>
+              </div>
+
+              {/* Bottom Info text */}
+              <div className="pt-4 border-t border-slate-200 text-center">
+                <span className="text-[10px] text-slate-450 font-medium">Internal CA KYC Records</span>
+              </div>
+            </div>
           </div>
         </div>
       )}

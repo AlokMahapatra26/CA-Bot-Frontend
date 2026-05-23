@@ -610,3 +610,40 @@ export async function uploadClientDoc(clientId: string, docType: 'pan' | 'aadhaa
   }
 }
 
+export async function createClientProfile(client: {
+  full_name: string;
+  phone_number: string;
+  email?: string | null;
+  date_of_birth?: string | null;
+  account_status?: string;
+}) {
+  try {
+    let phone = client.phone_number.replace(/\D/g, '');
+    if (phone.length === 10) {
+      phone = `91${phone}`;
+    }
+    const jid = phone ? `${phone}@s.whatsapp.net` : null;
+
+    const { error } = await serverSupabase
+      .from('clients')
+      .insert({
+        full_name: client.full_name.trim(),
+        phone_number: phone || null,
+        whatsapp_jid: jid,
+        email: client.email?.trim().toLowerCase() || null,
+        date_of_birth: client.date_of_birth || null,
+        account_status: client.account_status || 'APPROVED',
+        bot_status: 'REGISTERED',
+      });
+
+    if (error) throw new Error(error.message);
+
+    revalidatePath('/clients');
+    revalidatePath('/');
+    return { success: true };
+  } catch (error: any) {
+    console.error('Create Client Profile Error:', error);
+    return { success: false, error: error.message };
+  }
+}
+
