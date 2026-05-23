@@ -177,14 +177,62 @@ export default function ClientDashboard({ clientsData }: ClientDashboardProps) {
     });
   };
   const [sendingMsg, setSendingMsg] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
+
+  const [filterFilingStatus, setFilterFilingStatus] = useState<string>('ALL');
+  const [filterIncomeSource, setFilterIncomeSource] = useState<string>('ALL');
+  const [filterBotStatus, setFilterBotStatus] = useState<string>('ALL');
 
   const filtered = useMemo(() => {
+    let result = clientsData;
+
+    // Search query filter
     const q = query.trim().toLowerCase();
-    if (!q) return clientsData;
-    return clientsData.filter((c: any) =>
-      (c.full_name || '').toLowerCase().includes(q) || (c.phone_number || '').includes(q)
-    );
-  }, [clientsData, query]);
+    if (q) {
+      result = result.filter((c: any) =>
+        (c.full_name || '').toLowerCase().includes(q) ||
+        (c.phone_number || '').includes(q)
+      );
+    }
+
+    // Filing status filter
+    if (filterFilingStatus !== 'ALL') {
+      result = result.filter((c: any) => {
+        const f = c.itr_filings?.[0] || null;
+        return (f?.filing_status || 'AWAITING_DOCS') === filterFilingStatus;
+      });
+    }
+
+    // Income source filter
+    if (filterIncomeSource !== 'ALL') {
+      result = result.filter((c: any) => {
+        const f = c.itr_filings?.[0] || null;
+        return f?.income_source === filterIncomeSource;
+      });
+    }
+
+    // Bot status (onboarding) filter
+    if (filterBotStatus !== 'ALL') {
+      result = result.filter((c: any) => {
+        const f = c.itr_filings?.[0] || null;
+        return (f?.status || 'SERVICE_MENU') === filterBotStatus;
+      });
+    }
+
+    return result;
+  }, [clientsData, query, filterFilingStatus, filterIncomeSource, filterBotStatus]);
+
+  // Reset to first page when search query or any filter changes
+  useMemo(() => {
+    setCurrentPage(1);
+  }, [query, filterFilingStatus, filterIncomeSource, filterBotStatus]);
+
+  const paginatedClients = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    const end = start + pageSize;
+    return filtered.slice(start, end);
+  }, [filtered, currentPage, pageSize]);
 
   const exportCSV = () => {
     const headers = ['Full Name','Phone Number','Date of Birth','Email','Bank Name','Bank Account Number','Bank IFSC','FY Year','PAN Uploaded','Aadhaar Uploaded','Form 16 Uploaded','Filing Status','Last Updated'];
@@ -243,6 +291,71 @@ export default function ClientDashboard({ clientsData }: ClientDashboardProps) {
         </div>
       </div>
 
+      {/* Filter Bar */}
+      <div className="flex items-center gap-4 px-4 py-2 border-b border-[#e0e0e0] bg-white shrink-0 flex-wrap text-[11px] font-medium text-[#555]">
+        <div className="flex items-center gap-1.5">
+          <span className="text-[#888]">Filing Status:</span>
+          <select
+            value={filterFilingStatus}
+            onChange={e => setFilterFilingStatus(e.target.value)}
+            className="px-2 py-1 bg-white border border-[#ddd] rounded-md focus:outline-none focus:border-[#999] text-[11px] text-[#333] cursor-pointer font-medium"
+          >
+            <option value="ALL">All Statuses</option>
+            <option value="AWAITING_DOCS">Awaiting Docs</option>
+            <option value="DOCS_SUBMITTED">Docs Submitted</option>
+            <option value="DOCS_VERIFIED">Docs Verified</option>
+            <option value="FILING_IN_PROGRESS">Filing In Progress</option>
+            <option value="FILED">Filed</option>
+            <option value="REJECTED">Rejected</option>
+          </select>
+        </div>
+
+        <div className="flex items-center gap-1.5">
+          <span className="text-[#888]">Income Source:</span>
+          <select
+            value={filterIncomeSource}
+            onChange={e => setFilterIncomeSource(e.target.value)}
+            className="px-2 py-1 bg-white border border-[#ddd] rounded-md focus:outline-none focus:border-[#999] text-[11px] text-[#333] cursor-pointer font-medium"
+          >
+            <option value="ALL">All Sources</option>
+            <option value="SALARIED">Salaried</option>
+            <option value="BUSINESS">Business</option>
+            <option value="INVESTOR">Investor</option>
+            <option value="PROPERTY">Property</option>
+          </select>
+        </div>
+
+        <div className="flex items-center gap-1.5">
+          <span className="text-[#888]">Bot Status:</span>
+          <select
+            value={filterBotStatus}
+            onChange={e => setFilterBotStatus(e.target.value)}
+            className="px-2 py-1 bg-white border border-[#ddd] rounded-md focus:outline-none focus:border-[#999] text-[11px] text-[#333] cursor-pointer font-medium"
+          >
+            <option value="ALL">All Bot Statuses</option>
+            <option value="SERVICE_MENU">Service Selection</option>
+            <option value="AWAITING_FY_YEAR">Awaiting FY</option>
+            <option value="AWAITING_DOCS">Awaiting Docs</option>
+            <option value="COMPLETED">Completed</option>
+          </select>
+        </div>
+
+        {/* Clear Filters Button (only shows if any filter is active) */}
+        {(filterFilingStatus !== 'ALL' || filterIncomeSource !== 'ALL' || filterBotStatus !== 'ALL' || query) && (
+          <button
+            onClick={() => {
+              setFilterFilingStatus('ALL');
+              setFilterIncomeSource('ALL');
+              setFilterBotStatus('ALL');
+              setQuery('');
+            }}
+            className="px-2 py-0.5 hover:bg-red-50 text-red-600 hover:text-red-700 font-semibold border border-dashed border-red-200 hover:border-red-300 rounded text-[10px] transition-all uppercase tracking-wider cursor-pointer"
+          >
+            Clear Filters
+          </button>
+        )}
+      </div>
+
       {/* Table — full bleed */}
       <div className="flex-1 overflow-auto">
         <table className="w-full min-w-[1400px] text-left border-collapse">
@@ -265,7 +378,7 @@ export default function ClientDashboard({ clientsData }: ClientDashboardProps) {
                 {query ? `No results for "${query}"` : 'No clients yet.'}
               </td></tr>
             )}
-            {filtered.map((client: any) => {
+            {paginatedClients.map((client: any) => {
               const f = client.itr_filings?.[0] || null;
               const name = client.full_name || 'Anonymous';
               const phone = client.phone_number ? `+${client.phone_number}` : '—';
@@ -333,6 +446,50 @@ export default function ClientDashboard({ clientsData }: ClientDashboardProps) {
             })}
           </tbody>
         </table>
+      </div>
+
+      {/* Pagination Controls */}
+      <div className="h-[38px] bg-[#fafafa] border-t border-[#e0e0e0] px-4 flex items-center justify-between text-[11px] font-medium text-[#555] shrink-0">
+        <div className="flex items-center gap-2">
+          <span>Rows per page:</span>
+          <select
+            value={pageSize}
+            onChange={(e) => {
+              setPageSize(Number(e.target.value));
+              setCurrentPage(1);
+            }}
+            className="px-1.5 py-0.5 text-[11px] bg-white border border-[#ddd] rounded-md focus:outline-none focus:border-[#999] cursor-pointer font-semibold"
+          >
+            <option value={10}>10</option>
+            <option value={25}>25</option>
+            <option value={50}>50</option>
+            <option value={100}>100</option>
+          </select>
+        </div>
+
+        <div className="flex items-center gap-4">
+          <span>
+            Showing {filtered.length === 0 ? 0 : (currentPage - 1) * pageSize + 1}–
+            {Math.min(currentPage * pageSize, filtered.length)} of {filtered.length}
+          </span>
+          
+          <div className="flex items-center gap-1.5">
+            <button
+              onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+              disabled={currentPage === 1}
+              className="px-2.5 py-1 text-[11px] font-semibold text-[#555] bg-white border border-[#ddd] rounded-lg hover:border-[#aaa] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              Previous
+            </button>
+            <button
+              onClick={() => setCurrentPage(prev => Math.min(prev + 1, Math.ceil(filtered.length / pageSize)))}
+              disabled={currentPage >= Math.ceil(filtered.length / pageSize)}
+              className="px-2.5 py-1 text-[11px] font-semibold text-[#555] bg-white border border-[#ddd] rounded-lg hover:border-[#aaa] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              Next
+            </button>
+          </div>
+        </div>
       </div>
 
       {/* Modal Dialog */}
