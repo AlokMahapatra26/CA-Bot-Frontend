@@ -85,6 +85,10 @@ export default function ClientsDashboard({ clientsData }: ClientsDashboardProps)
     bot_status: ''
   });
   const [activePreviewDoc, setActivePreviewDoc] = useState<{ url: string; clientName: string; docType: string } | null>(null);
+  const [filterBotStatus, setFilterBotStatus] = useState<string>('ALL');
+  const [filterAccountStatus, setFilterAccountStatus] = useState<string>('ALL');
+  const [filterService, setFilterService] = useState<string>('ALL');
+  const [filterDocs, setFilterDocs] = useState<string>('ALL');
 
   const handleImportCSV = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -219,19 +223,61 @@ export default function ClientsDashboard({ clientsData }: ClientsDashboardProps)
   };
 
   const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    if (!q) return clientsData;
-    return clientsData.filter((c: any) =>
-      (c.full_name || '').toLowerCase().includes(q) ||
-      (c.phone_number || '').includes(q) ||
-      (c.email || '').toLowerCase().includes(q)
-    );
-  }, [clientsData, query]);
+    let result = clientsData;
 
-  // Reset to first page when search query changes
+    // Search query filter
+    const q = query.trim().toLowerCase();
+    if (q) {
+      result = result.filter((c: any) =>
+        (c.full_name || '').toLowerCase().includes(q) ||
+        (c.phone_number || '').includes(q) ||
+        (c.email || '').toLowerCase().includes(q)
+      );
+    }
+
+    // Bot status (Reg. Stage) filter
+    if (filterBotStatus !== 'ALL') {
+      result = result.filter((c: any) => (c.bot_status || 'REGISTERING_NAME') === filterBotStatus);
+    }
+
+    // Account status filter
+    if (filterAccountStatus !== 'ALL') {
+      result = result.filter((c: any) => (c.account_status || 'PENDING') === filterAccountStatus);
+    }
+
+    // Services filter
+    if (filterService !== 'ALL') {
+      if (filterService === 'ITR') {
+        result = result.filter((c: any) => c.itr_filings && c.itr_filings.length > 0);
+      } else if (filterService === 'NONE') {
+        result = result.filter((c: any) => !c.itr_filings || c.itr_filings.length === 0);
+      }
+    }
+
+    // Document KYC upload filter
+    if (filterDocs !== 'ALL') {
+      if (filterDocs === 'PAN_UPLOADED') {
+        result = result.filter((c: any) => !!c.pan_media_url);
+      } else if (filterDocs === 'PAN_MISSING') {
+        result = result.filter((c: any) => !c.pan_media_url);
+      } else if (filterDocs === 'AADHAAR_UPLOADED') {
+        result = result.filter((c: any) => !!c.aadhaar_media_url);
+      } else if (filterDocs === 'AADHAAR_MISSING') {
+        result = result.filter((c: any) => !c.aadhaar_media_url);
+      } else if (filterDocs === 'BOTH_UPLOADED') {
+        result = result.filter((c: any) => !!c.pan_media_url && !!c.aadhaar_media_url);
+      } else if (filterDocs === 'ANY_MISSING') {
+        result = result.filter((c: any) => !c.pan_media_url || !c.aadhaar_media_url);
+      }
+    }
+
+    return result;
+  }, [clientsData, query, filterBotStatus, filterAccountStatus, filterService, filterDocs]);
+
+  // Reset to first page when search query or any filter changes
   useMemo(() => {
     setCurrentPage(1);
-  }, [query]);
+  }, [query, filterBotStatus, filterAccountStatus, filterService, filterDocs]);
 
   const paginatedClients = useMemo(() => {
     const start = (currentPage - 1) * pageSize;
@@ -376,7 +422,88 @@ export default function ClientsDashboard({ clientsData }: ClientsDashboardProps)
           >
             <Upload className="w-3 h-3 text-slate-500 font-bold" /> Export CSV
           </button>
+      </div>
+
+      {/* Filter Bar */}
+      <div className="flex items-center gap-4 px-4 py-2 border-b border-[#e0e0e0] bg-white shrink-0 flex-wrap text-[11px] font-medium text-[#555]">
+        <div className="flex items-center gap-1.5">
+          <span className="text-[#888]">Reg. Stage:</span>
+          <select
+            value={filterBotStatus}
+            onChange={e => setFilterBotStatus(e.target.value)}
+            className="px-2 py-1 bg-white border border-[#ddd] rounded-md focus:outline-none focus:border-[#999] text-[11px] text-[#333] cursor-pointer font-medium"
+          >
+            <option value="ALL">All Stages</option>
+            <option value="REGISTERING_NAME">Name Collection</option>
+            <option value="REGISTERING_PHONE">Phone Collection</option>
+            <option value="REGISTERING_DOB">DOB Collection</option>
+            <option value="REGISTERING_EMAIL">Email Collection</option>
+            <option value="REGISTERING_PAN">PAN Upload</option>
+            <option value="REGISTERING_AADHAAR">Aadhaar Upload</option>
+            <option value="PENDING_APPROVAL">Docs Submitted</option>
+            <option value="REGISTERED">Registered</option>
+          </select>
         </div>
+
+        <div className="flex items-center gap-1.5">
+          <span className="text-[#888]">Account Status:</span>
+          <select
+            value={filterAccountStatus}
+            onChange={e => setFilterAccountStatus(e.target.value)}
+            className="px-2 py-1 bg-white border border-[#ddd] rounded-md focus:outline-none focus:border-[#999] text-[11px] text-[#333] cursor-pointer font-medium"
+          >
+            <option value="ALL">All Statuses</option>
+            <option value="PENDING">Pending Approval</option>
+            <option value="APPROVED">Approved</option>
+            <option value="SUSPENDED">Suspended</option>
+          </select>
+        </div>
+
+        <div className="flex items-center gap-1.5">
+          <span className="text-[#888]">Services:</span>
+          <select
+            value={filterService}
+            onChange={e => setFilterService(e.target.value)}
+            className="px-2 py-1 bg-white border border-[#ddd] rounded-md focus:outline-none focus:border-[#999] text-[11px] text-[#333] cursor-pointer font-medium"
+          >
+            <option value="ALL">All Services</option>
+            <option value="ITR">Has Active ITR</option>
+            <option value="NONE">No Active Services</option>
+          </select>
+        </div>
+
+        <div className="flex items-center gap-1.5">
+          <span className="text-[#888]">KYC Docs:</span>
+          <select
+            value={filterDocs}
+            onChange={e => setFilterDocs(e.target.value)}
+            className="px-2 py-1 bg-white border border-[#ddd] rounded-md focus:outline-none focus:border-[#999] text-[11px] text-[#333] cursor-pointer font-medium"
+          >
+            <option value="ALL">All KYC Docs</option>
+            <option value="PAN_UPLOADED">PAN Uploaded</option>
+            <option value="PAN_MISSING">PAN Missing</option>
+            <option value="AADHAAR_UPLOADED">Aadhaar Uploaded</option>
+            <option value="AADHAAR_MISSING">Aadhaar Missing</option>
+            <option value="BOTH_UPLOADED">Both Uploaded</option>
+            <option value="ANY_MISSING">Any Doc Missing</option>
+          </select>
+        </div>
+
+        {/* Clear Filters Button (only shows if any filter is active) */}
+        {(filterBotStatus !== 'ALL' || filterAccountStatus !== 'ALL' || filterService !== 'ALL' || filterDocs !== 'ALL' || query) && (
+          <button
+            onClick={() => {
+              setFilterBotStatus('ALL');
+              setFilterAccountStatus('ALL');
+              setFilterService('ALL');
+              setFilterDocs('ALL');
+              setQuery('');
+            }}
+            className="px-2 py-0.5 hover:bg-red-50 text-red-600 hover:text-red-700 font-semibold border border-dashed border-red-200 hover:border-red-300 rounded text-[10px] transition-all uppercase tracking-wider cursor-pointer"
+          >
+            Clear Filters
+          </button>
+        )}
       </div>
 
       {/* Table */}
