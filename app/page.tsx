@@ -13,10 +13,15 @@ export default async function DashboardPage() {
         fy_year,
         status,
         filing_status,
+        income_source,
         bank_name,
         bank_account_number,
         bank_ifsc,
         form16_media_url,
+        bank_statement_media_url,
+        capital_gains_media_url,
+        property_docs_media_url,
+        other_docs_media_url,
         updated_at
       )
     `)

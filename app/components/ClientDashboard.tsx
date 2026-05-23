@@ -1,9 +1,8 @@
 'use client';
 
 import { useState, useMemo, useTransition } from 'react';
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { CheckCircle2, Clock, Download, Search, X, FileText, Bell, RefreshCw } from 'lucide-react';
+import { CheckCircle2, Clock, Download, Search, X, FileText, RefreshCw, Briefcase, Building2, TrendingUp, Home } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import DeleteButton from './DeleteButton';
 import FilingStatusSelect from './FilingStatusSelect';
@@ -51,13 +50,49 @@ const renderStatus = (status: string) => {
 
 const renderIncomeSource = (source: string | null) => {
   if (!source) return <span className="text-[#ccc]">—</span>;
-  const labels: Record<string, string> = {
-    SALARIED: '👔 Salaried',
-    BUSINESS: '💼 Business',
-    INVESTOR: '📈 Investor',
-    PROPERTY: '🏠 Property',
+  
+  const map: Record<string, { label: string; icon: React.ComponentType<any>; colorClass: string; bgClass: string; borderClass: string }> = {
+    SALARIED: {
+      label: 'Salaried',
+      icon: Briefcase,
+      colorClass: 'text-indigo-700',
+      bgClass: 'bg-indigo-50/50',
+      borderClass: 'border-indigo-100',
+    },
+    BUSINESS: {
+      label: 'Business',
+      icon: Building2,
+      colorClass: 'text-emerald-700',
+      bgClass: 'bg-emerald-50/50',
+      borderClass: 'border-emerald-100',
+    },
+    INVESTOR: {
+      label: 'Investor',
+      icon: TrendingUp,
+      colorClass: 'text-blue-700',
+      bgClass: 'bg-blue-50/50',
+      borderClass: 'border-blue-100',
+    },
+    PROPERTY: {
+      label: 'Property',
+      icon: Home,
+      colorClass: 'text-amber-700',
+      bgClass: 'bg-amber-50/50',
+      borderClass: 'border-amber-100',
+    },
   };
-  return <span className="font-semibold text-slate-700 text-[11px]">{labels[source] || source}</span>;
+
+  const item = map[source];
+  if (!item) return <span className="font-semibold text-slate-700 text-[11px]">{source}</span>;
+
+  const IconComponent = item.icon;
+
+  return (
+    <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded border text-[10.5px] font-semibold tracking-wide uppercase ${item.colorClass} ${item.bgClass} ${item.borderClass}`}>
+      <IconComponent className="w-3 h-3" />
+      {item.label}
+    </span>
+  );
 };
 
 const renderFilingDocs = (f: any, clientName: string) => {
@@ -67,7 +102,16 @@ const renderFilingDocs = (f: any, clientName: string) => {
   if (f.bank_statement_media_url) docs.push({ url: f.bank_statement_media_url, label: 'Bank Statement' });
   if (f.capital_gains_media_url) docs.push({ url: f.capital_gains_media_url, label: 'Capital Gains' });
   if (f.property_docs_media_url) docs.push({ url: f.property_docs_media_url, label: 'Property Deeds' });
-  if (f.other_docs_media_url) docs.push({ url: f.other_docs_media_url, label: 'Other Doc' });
+  
+  if (f.other_docs_media_url) {
+    const urls = f.other_docs_media_url.split(',');
+    urls.forEach((url: string, idx: number) => {
+      docs.push({
+        url: url.trim(),
+        label: urls.length > 1 ? `Other Doc ${idx + 1}` : 'Other Doc'
+      });
+    });
+  }
 
   if (docs.length === 0) {
     return (
@@ -168,12 +212,6 @@ export default function ClientDashboard({ clientsData }: ClientDashboardProps) {
           <span className="text-[11px] text-[#999]">{filtered.length} records</span>
         </div>
         <div className="flex items-center gap-2">
-          <Link
-            href="/reminders"
-            className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-medium text-[#555] bg-white border border-[#ddd] rounded-lg hover:border-[#aaa] transition-colors"
-          >
-            <Bell className="w-3.5 h-3.5 text-[#888]" /> Reminders
-          </Link>
           <button
             onClick={exportCSV}
             className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-medium text-[#555] bg-white border border-[#ddd] rounded-lg hover:border-[#aaa] transition-colors"

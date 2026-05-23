@@ -78,13 +78,26 @@ export default function DownloadDropdown({
     }
   };
 
-  const docItems = [
+  const otherDocsList = otherDocsUrl ? otherDocsUrl.split(',') : [];
+
+  const docItems: { type: DocType; label: string; url: string | null }[] = [
     { type: 'Form16' as DocType, label: 'Form 16', url: form16Url },
     { type: 'BankStatement' as DocType, label: 'Bank Statement', url: bankStatementUrl },
     { type: 'CapitalGains' as DocType, label: 'Capital Gains', url: capitalGainsUrl },
     { type: 'PropertyDocs' as DocType, label: 'Property Deeds', url: propertyDocsUrl },
-    { type: 'OtherDocs' as DocType, label: 'Other Document', url: otherDocsUrl },
   ];
+
+  if (otherDocsList.length > 0) {
+    otherDocsList.forEach((url, idx) => {
+      docItems.push({
+        type: 'OtherDocs' as DocType,
+        label: otherDocsList.length > 1 ? `Other Document ${idx + 1}` : 'Other Document',
+        url: url.trim(),
+      });
+    });
+  } else {
+    docItems.push({ type: 'OtherDocs' as DocType, label: 'Other Document', url: null });
+  }
 
   const activeDocs = docItems.filter(item => !!item.url);
   const anyDocUploaded = activeDocs.length > 0;
@@ -108,7 +121,7 @@ export default function DownloadDropdown({
 
           <div className="max-h-60 overflow-y-auto divide-y divide-slate-100">
             {activeDocs.map((doc) => (
-              <div key={doc.type} className="px-3 py-2 text-[12px] font-medium flex items-center justify-between gap-4">
+              <div key={`${doc.type}-${doc.label}`} className="px-3 py-2 text-[12px] font-medium flex items-center justify-between gap-4">
                 <span className="font-bold text-slate-800 truncate" title={doc.label}>
                   {doc.label}
                 </span>
