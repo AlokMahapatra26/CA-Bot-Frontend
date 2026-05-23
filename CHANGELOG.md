@@ -2,6 +2,16 @@
 
 All notable changes to the CA-bOt Frontend client dashboard will be documented in this file.
 
+## [1.14.0] - 2026-05-23
+### Added
+- **Raw, Ultra-Minimalist Sans-Serif Conversation State Tree**:
+  - Re-designed the interactive decision tree modal into a highly quiet, monotone, high-density raw text tree.
+  - Removed all emojis, icon decorations, and non-default custom monospace fonts for zero-friction Swiss minimalism.
+  - Implemented sleek, collapsible CSS `<details>` blocks for each primary tax pathway (Salary, Business, Investor, Real Estate Property, and Multi-Document Loops) to easily inspect stages.
+  - Incorporated clear database statuses (e.g., `AWAITING_FORM16`, `AWAITING_BANK_STATEMENT`) and verification rules matching the dashboard's unified typography.
+  - Rendered a raw backtrack interceptor warning alert detailing `back` and `undo` rollbacks.
+  - Removed all technical version identifiers (`flow_tree_engine.sys`, `flow_tree_engine.v1.5.0`) to provide a clean, pristine product presentation.
+
 ## [1.13.0] - 2026-05-23
 ### Added
 - **Developer Settings Backdoor / Bulk Profile Deletion**:

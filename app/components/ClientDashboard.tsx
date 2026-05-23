@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import { CheckCircle2, Clock, Download, Search, X, FileText, RefreshCw, Briefcase, Building2, TrendingUp, Home } from 'lucide-react';
+import { CheckCircle2, Clock, Download, Search, X, FileText, RefreshCw, Briefcase, Building2, TrendingUp, Home, GitFork } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import DeleteButton from './DeleteButton';
 import FilingStatusSelect from './FilingStatusSelect';
@@ -170,7 +170,8 @@ export default function ClientDashboard({ clientsData }: ClientDashboardProps) {
     whatsappJid: string;
     filingStatus?: string;
   } | null>(null);
-
+  const [showDecisionTree, setShowDecisionTree] = useState(false);
+  const [activePathFilter, setActivePathFilter] = useState<'SALARIED' | 'BUSINESS' | 'INVESTOR' | 'PROPERTY' | null>(null);
   const handleRefresh = () => {
     startTransition(() => {
       router.refresh();
@@ -280,6 +281,13 @@ export default function ClientDashboard({ clientsData }: ClientDashboardProps) {
           <span className="text-[11px] text-[#999]">{filtered.length} records</span>
         </div>
         <div className="flex items-center gap-2">
+          <button
+            onClick={() => setShowDecisionTree(true)}
+            className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-semibold text-[#555] bg-white border border-[#ddd] rounded-lg hover:border-[#aaa] transition-colors"
+          >
+            <GitFork className="w-3.5 h-3.5 text-slate-500" />
+            <span>Bot Flow Diagram</span>
+          </button>
           <button
             onClick={exportCSV}
             className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-medium text-[#555] bg-white border border-[#ddd] rounded-lg hover:border-[#aaa] transition-colors"
@@ -553,6 +561,183 @@ export default function ClientDashboard({ clientsData }: ClientDashboardProps) {
           onClose={() => setActivePreviewDoc(null)}
           doc={activePreviewDoc}
         />
+      )}
+      {/* Bot Decision Tree Modal */}
+      {showDecisionTree && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/35 backdrop-blur-[0.5px] p-4 animate-in fade-in duration-150">
+          <div className="bg-white border border-[#d0d0d0] rounded-lg w-full max-w-4xl h-[82vh] overflow-hidden shadow-xl flex flex-col transition-all">
+            {/* Minimalist Header */}
+            <div className="bg-[#fcfcfc] px-4 py-2.5 border-b border-[#e5e5e5] flex items-center justify-between shrink-0">
+              <div>
+                <h3 className="text-[11px] font-bold text-slate-800 uppercase tracking-wider mt-0.5">
+                  <span>CONVERSATION STATE TREE</span>
+                </h3>
+              </div>
+              <button 
+                onClick={() => setShowDecisionTree(false)}
+                className="text-[10px] font-bold px-2 py-0.5 bg-white hover:bg-slate-50 border border-[#d0d0d0] rounded transition-all text-[#333]"
+              >
+                [Esc] Close
+              </button>
+            </div>
+
+            {/* Content Container - Monotone Scrollable */}
+            <div className="flex-1 overflow-auto p-5 space-y-5 bg-white text-[11px]">
+              
+              {/* Backtrack Banner - Minimal Box */}
+              <div className="border border-[#e0e0e0] bg-slate-50/40 p-3 rounded text-[10.5px] leading-relaxed text-slate-700">
+                <span className="font-bold">BACKTRACK INTERCEPTOR ACTIVE</span>
+                <p className="mt-1">
+                  At any stage, typing <strong className="bg-slate-100 px-1 rounded text-slate-850">back</strong> or <strong className="bg-slate-100 px-1 rounded text-slate-850">undo</strong> will instantly wipe the last entered column in Supabase, rollback the stage status, and dispatch the correct previous text prompt.
+                </p>
+              </div>
+
+              {/* Main Two Column Monospace Trees */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2">
+                
+                {/* KYC Column */}
+                <div className="border border-[#e0e0e0] p-4 bg-slate-50/40 rounded">
+                  <div className="border-b border-[#e8e8e8] pb-1.5 mb-3 font-bold text-slate-700">
+                    [PHASE 1: CLIENT REGISTRATION & KYC]
+                  </div>
+                  <pre className="text-[10.5px] leading-relaxed text-[#444] whitespace-pre-wrap select-text">
+{`┌─ WELCOME & GREETING
+│  └── Trigger: Client sends 'hi' / 'hello'
+│
+├─ CLIENT KYC ONBOARDING
+│  ├── 1. Full Name     --> [client.full_name]
+│  │   └── status: REGISTERING_NAME
+│  ├── 2. Verify Mobile --> [client.phone_number]
+│  │   └── status: REGISTERING_PHONE
+│  ├── 3. Date of Birth --> [client.date_of_birth]
+│  │   └── status: REGISTERING_DOB
+│  ├── 4. Email Address --> [client.email]
+│  │   └── status: REGISTERING_EMAIL
+│  ├── 5. PAN Upload    --> [pan_media_url]
+│  │   └── status: REGISTERING_PAN
+│  └── 6. Aadhaar Upload--> [aadhaar_media_url]
+│      └── status: REGISTERING_AADHAAR
+│
+└─ CA HOD REVIEW
+   └── status: PENDING_APPROVAL
+       └── Blocked until account_status === 'APPROVED'`}
+                  </pre>
+                </div>
+
+                {/* ITR Column */}
+                <div className="border border-[#e0e0e0] p-4 bg-slate-50/40 rounded">
+                  <div className="border-b border-[#e8e8e8] pb-1.5 mb-3 font-bold text-slate-700">
+                    [PHASE 2 & 3: ITR FILING DETAILS]
+                  </div>
+                  <pre className="text-[10.5px] leading-relaxed text-[#444] whitespace-pre-wrap select-text">
+{`┌─ SERVICE MENU ROUTING
+│  └── status: REGISTERED
+│      └── Select '1' for ITR Filing (creates itr_filings)
+│
+├─ BANK INFORMATION COLLECTION
+│  ├── 1. Bank Name       --> [filing.bank_name]
+│  │   └── status: AWAITING_BANK_NAME
+│  ├── 2. Account Number  --> [filing.bank_account_number]
+│  │   └── status: AWAITING_BANK_ACC (6-18 digits)
+│  └── 3. Bank IFSC Code  --> [filing.bank_ifsc]
+│      └── status: AWAITING_BANK_IFSC (validation match)
+│
+└─ PRIMARY INCOME ROUTING
+   └── status: AWAITING_INCOME_SOURCE
+       └── User selects primary source of tax income`}
+                  </pre>
+                </div>
+
+              </div>
+
+              {/* Collapsible Decisional Branches Section */}
+              <div className="space-y-2 pt-2">
+                <div className="font-bold text-slate-700 border-b border-[#eee] pb-1">
+                  [PHASE 4: DECISIONAL BRANCHES & COMPILING] (Click to expand)
+                </div>
+
+                <div className="space-y-1.5">
+                  
+                  {/* Branch A */}
+                  <details className="group border border-[#e0e0e0] rounded bg-white hover:border-[#bbb] transition-all">
+                    <summary className="cursor-pointer p-2 flex items-center justify-between font-bold text-slate-700 select-none">
+                      <span>BRANCH 1: SALARIED EMPLOYEE PATHWAY</span>
+                      <span className="text-[9px] text-[#999] group-open:rotate-180 transition-transform">▼</span>
+                    </summary>
+                    <div className="p-3 border-t border-[#f0f0f0] bg-slate-50/30 text-[10.5px] text-[#555] space-y-1.5 leading-relaxed">
+                      <div>• <strong>Target Database State:</strong> <code className="bg-slate-100 px-1 py-0.5 rounded text-slate-850">AWAITING_FORM16</code></div>
+                      <div>• <strong>System Query Prompt:</strong> Bot requests Form 16 (PDF or photo format).</div>
+                      <div>• <strong>Database Storage Column:</strong> <code className="bg-slate-100 px-1 py-0.5 rounded text-slate-850">itr_filings.form16_media_url</code></div>
+                      <div>• <strong>Subsequent Step:</strong> Redirects automatically to Property Sale Transaction check.</div>
+                    </div>
+                  </details>
+
+                  {/* Branch B */}
+                  <details className="group border border-[#e0e0e0] rounded bg-white hover:border-[#bbb] transition-all">
+                    <summary className="cursor-pointer p-2 flex items-center justify-between font-bold text-slate-700 select-none">
+                      <span>BRANCH 2: BUSINESS / PROFESSIONAL / FREELANCE PATHWAY</span>
+                      <span className="text-[9px] text-[#999] group-open:rotate-180 transition-transform">▼</span>
+                    </summary>
+                    <div className="p-3 border-t border-[#f0f0f0] bg-slate-50/30 text-[10.5px] text-[#555] space-y-1.5 leading-relaxed">
+                      <div>• <strong>Target Database State:</strong> <code className="bg-slate-100 px-1 py-0.5 rounded text-slate-850">AWAITING_BANK_STATEMENT</code></div>
+                      <div>• <strong>System Query Prompt:</strong> Bot requests 12-month Bank Statement document.</div>
+                      <div>• <strong>Database Storage Column:</strong> <code className="bg-slate-100 px-1 py-0.5 rounded text-slate-850">itr_filings.bank_statement_media_url</code></div>
+                      <div>• <strong>Subsequent Step:</strong> Redirects automatically to Property Sale Transaction check.</div>
+                    </div>
+                  </details>
+
+                  {/* Branch C */}
+                  <details className="group border border-[#e0e0e0] rounded bg-white hover:border-[#bbb] transition-all">
+                    <summary className="cursor-pointer p-2 flex items-center justify-between font-bold text-slate-700 select-none">
+                      <span>BRANCH 3: STOCK MARKET / MUTUAL FUNDS INVESTOR PATHWAY</span>
+                      <span className="text-[9px] text-[#999] group-open:rotate-180 transition-transform">▼</span>
+                    </summary>
+                    <div className="p-3 border-t border-[#f0f0f0] bg-slate-50/30 text-[10.5px] text-[#555] space-y-1.5 leading-relaxed">
+                      <div>• <strong>Target Database State:</strong> <code className="bg-slate-100 px-1 py-0.5 rounded text-slate-850">AWAITING_CAPITAL_GAINS</code></div>
+                      <div>• <strong>System Query Prompt:</strong> Bot requests Capital Gains statement or broker P&L report.</div>
+                      <div>• <strong>Database Storage Column:</strong> <code className="bg-slate-100 px-1 py-0.5 rounded text-slate-850">itr_filings.capital_gains_media_url</code></div>
+                      <div>• <strong>Subsequent Step:</strong> Redirects automatically to Property Sale Transaction check.</div>
+                    </div>
+                  </details>
+
+                  {/* Branch D */}
+                  <details className="group border border-[#e0e0e0] rounded bg-white hover:border-[#bbb] transition-all">
+                    <summary className="cursor-pointer p-2 flex items-center justify-between font-bold text-slate-700 select-none">
+                      <span>BRANCH 4: PROPERTY SALE TRANSACTIONS PATHWAY</span>
+                      <span className="text-[9px] text-[#999] group-open:rotate-180 transition-transform">▼</span>
+                    </summary>
+                    <div className="p-3 border-t border-[#f0f0f0] bg-slate-50/30 text-[10.5px] text-[#555] space-y-1.5 leading-relaxed">
+                      <div>• <strong>Target Database State:</strong> <code className="bg-slate-100 px-1 py-0.5 rounded text-slate-850">AWAITING_PROPERTY_DOCS</code></div>
+                      <div>• <strong>System Query Prompt:</strong> Bot requests registered Purchase or Sale deeds.</div>
+                      <div>• <strong>Database Storage Column:</strong> <code className="bg-slate-100 px-1 py-0.5 rounded text-slate-850">itr_filings.property_docs_media_url</code></div>
+                      <div>• <strong>Subsequent Step:</strong> Redirects automatically to Other Documents decision loops.</div>
+                    </div>
+                  </details>
+
+                  {/* Final Compilation Details */}
+                  <details className="group border border-[#e0e0e0] rounded bg-white hover:border-[#bbb] transition-all">
+                    <summary className="cursor-pointer p-2 flex items-center justify-between font-bold text-[#111] select-none">
+                      <span>MULTI-DOCUMENT LOOPS & TRANSACTION FINISHING</span>
+                      <span className="text-[9px] text-[#999] group-open:rotate-180 transition-transform">▼</span>
+                    </summary>
+                    <div className="p-3 border-t border-[#f0f0f0] bg-slate-50/30 text-[10.5px] text-[#555] space-y-1.5 leading-relaxed">
+                      <div>• <strong>Real Estate Check (Q1):</strong> Requests property deeds only if capital gains were received.</div>
+                      <div>• <strong>Other Document Loop (Q2):</strong> State: <code className="bg-slate-100 px-1 py-0.5 rounded text-slate-850">AWAITING_OTHER_DOCS</code>. Allows client to upload unlimited files in a consecutive message loop (accumulating comma-separated media URLs inside <code className="bg-slate-100 px-1 py-0.5 rounded text-slate-850">other_docs_media_url</code>) until they explicitly type <strong className="text-black bg-slate-200 px-1 rounded">DONE</strong> to close the loop.</div>
+                      <div>• <strong>ITR Session Compilation:</strong> Changes <code className="bg-slate-100 px-1 py-0.5 rounded text-slate-850">filing_status</code> to <code className="bg-emerald-100 text-emerald-800 px-1 py-0.5 rounded">COMPLETED</code>, locking all uploads and alerting CA specialists on the dashboard.</div>
+                    </div>
+                  </details>
+
+                </div>
+              </div>
+
+            </div>
+
+            {/* Monospace Footer */}
+            <div className="bg-[#fcfcfc] border-t border-[#e5e5e5] px-4 py-2 flex items-center justify-end text-[9px] text-slate-400 shrink-0">
+              <span>© {new Date().getFullYear()} DAV Labs System Architecture</span>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
