@@ -2,6 +2,14 @@
 
 All notable changes to the CA-bOt Frontend client dashboard will be documented in this file.
 
+## [1.9.0] - 2026-05-23
+### Added
+- **Services Column in Client Profiles Table**:
+  - Added a new "Services" column to the client profiles spreadsheet, dynamically showing which services (ITR, GST, DSC) each client has opted for.
+  - Queries `itr_filings` relation from Supabase to detect active ITR enrollments.
+  - Clickable service tags: clicking "ITR" navigates directly to the ITR Filing dashboard where that client's filing details are displayed.
+  - GST and DSC tags are prepared but commented out until those modules go live.
+
 ## [1.8.0] - 2026-05-23
 ### Added
 - **Interactive KYC Document Preview Dialog**:

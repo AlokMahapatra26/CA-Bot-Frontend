@@ -2,6 +2,7 @@
 
 import { useState, useMemo, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { Search, X, Download, Upload, FileText, Clock, CheckCircle2, HelpCircle, RefreshCw, Plus, ChevronDown } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import ClientNameCell from './ClientNameCell';
@@ -380,7 +381,7 @@ export default function ClientsDashboard({ clientsData }: ClientsDashboardProps)
 
       {/* Table */}
       <div className="flex-1 overflow-auto">
-        <table className="w-full min-w-[1300px] text-left border-collapse">
+        <table className="w-full min-w-[1400px] text-left border-collapse">
           <thead className="sticky top-0 z-10">
             <tr className="bg-[#f5f5f5] border-b border-[#e0e0e0] text-[11px] font-semibold text-[#666] uppercase tracking-wide">
               <th className="px-3 py-2 border-r border-[#e0e0e0] w-[160px]">Name</th>
@@ -389,6 +390,7 @@ export default function ClientsDashboard({ clientsData }: ClientsDashboardProps)
               <th className="px-3 py-2 border-r border-[#e0e0e0] w-[170px]">Email</th>
               <th className="px-3 py-2 border-r border-[#e0e0e0] w-[100px]">PAN Card</th>
               <th className="px-3 py-2 border-r border-[#e0e0e0] w-[100px]">Aadhaar</th>
+              <th className="px-3 py-2 border-r border-[#e0e0e0] w-[120px]">Services</th>
               <th className="px-3 py-2 border-r border-[#e0e0e0] w-[90px]">Reg. Stage</th>
               <th className="px-3 py-2 border-r border-[#e0e0e0] w-[220px]">Account Status</th>
               <th className="px-3 py-2 border-r border-[#e0e0e0] w-[110px] text-right">Joined</th>
@@ -398,7 +400,7 @@ export default function ClientsDashboard({ clientsData }: ClientsDashboardProps)
           <tbody>
             {filtered.length === 0 && (
               <tr>
-                <td colSpan={10} className="px-3 py-6 text-center text-[12px] text-[#aaa]">
+                <td colSpan={11} className="px-3 py-6 text-center text-[12px] text-[#aaa]">
                   {query ? `No profiles matching "${query}"` : 'No client profiles found.'}
                 </td>
               </tr>
@@ -471,6 +473,27 @@ export default function ClientsDashboard({ clientsData }: ClientsDashboardProps)
                         />
                       </label>
                     )}
+                  </td>
+                  <td className="px-3 py-2 border-r border-[#eee]">
+                    <div className="flex items-center gap-1 flex-wrap">
+                      {client.itr_filings && client.itr_filings.length > 0 ? (
+                        <Link
+                          href="/"
+                          className="inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider bg-blue-50 text-blue-700 border border-blue-200 rounded hover:bg-blue-100 hover:border-blue-300 transition-colors cursor-pointer"
+                          title="View ITR Filing"
+                        >
+                          <FileText className="w-2.5 h-2.5" /> ITR
+                        </Link>
+                      ) : null}
+                      {/* GST & DSC tags — greyed out until modules go live */}
+                      {/* 
+                      <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider bg-slate-50 text-slate-400 border border-slate-200 rounded">GST</span>
+                      <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider bg-slate-50 text-slate-400 border border-slate-200 rounded">DSC</span>
+                      */}
+                      {(!client.itr_filings || client.itr_filings.length === 0) && (
+                        <span className="text-[10px] text-[#ccc]">—</span>
+                      )}
+                    </div>
                   </td>
                   <td className="px-3 py-2 border-r border-[#eee]">{renderBotStatus(client.bot_status)}</td>
                   <td className="px-3 py-2 border-r border-[#eee]">

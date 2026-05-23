@@ -6,7 +6,7 @@ export const revalidate = 0;
 export default async function ClientsPage() {
   const { data: clientsData, error } = await supabase
     .from('clients')
-    .select('*')
+    .select('*, itr_filings(id)')
     .order('created_at', { ascending: false });
 
   if (error) {
