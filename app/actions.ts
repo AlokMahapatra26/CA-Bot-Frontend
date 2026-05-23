@@ -647,3 +647,25 @@ export async function createClientProfile(client: {
   }
 }
 
+export async function getChangelogs() {
+  try {
+    const fs = await import('fs/promises');
+    const path = await import('path');
+
+    const frontendPath = path.join(process.cwd(), 'CHANGELOG.md');
+    const backendPath = path.join(process.cwd(), '../wb-backend/CHANGELOG.md');
+
+    const frontendChangelog = await fs.readFile(frontendPath, 'utf8');
+    const backendChangelog = await fs.readFile(backendPath, 'utf8');
+
+    return {
+      success: true,
+      frontend: frontendChangelog,
+      backend: backendChangelog,
+    };
+  } catch (error: any) {
+    console.error('getChangelogs server action error:', error);
+    return { success: false, error: error.message };
+  }
+}
+

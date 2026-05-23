@@ -2,6 +2,20 @@
 
 All notable changes to the CA-bOt Frontend client dashboard will be documented in this file.
 
+## [1.12.0] - 2026-05-23
+### Added
+- **Global Keyboard Shortcuts & interactive modal**:
+  - Implemented an elegant shortcuts system to streamline expert workflows.
+  - **Ctrl + K** or **Cmd + K**: Autofocus and select active search bars on all dashboards.
+  - **Alt + [1-5]**: Swift keyboard-based page routing across primary dashboard navigation modules.
+  - **Escape**: Blur active input selectors.
+  - **Shortcuts Sidebar Tab**: Integrated a dedicated, interactive "Shortcuts" navigation button in the sidebar that displays all actions in a premium, beautifully aligned Keyboard Shortcuts modal.
+  - **Inline Search Bar Indicator Badge**: Rendered a sleek, lightweight `Ctrl+K` key helper inside the search bar when no query is typed to guide standard user behavior.
+- **Dynamic Unified Changelog Tab & Modal**:
+  - Designed and built a "Changelog" button/tab at the bottom of the sidebar.
+  - Added a backend server action to dynamically read both `wb-frontend/CHANGELOG.md` and `wb-backend/CHANGELOG.md` directly from the server filesystem.
+  - Designed a high-fidelity modal displaying side-by-side or tabbed views of both frontend and backend historical changelogs with clean, markdown-style formatting and premium spacing.
+
 ## [1.11.0] - 2026-05-23
 ### Added
 - **ITR Filing Pagination & Filter System**:

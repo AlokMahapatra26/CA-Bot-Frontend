@@ -249,19 +249,24 @@ export default function ClientDashboard({ clientsData }: ClientDashboardProps) {
       <div className="flex items-center justify-between px-4 py-2 border-b border-[#e0e0e0] bg-[#fafafa] shrink-0">
         <div className="flex items-center gap-3">
           {/* Search */}
-          <div className="relative">
-            <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[#aaa] pointer-events-none" />
+          <div className="relative flex items-center">
+            <Search className="absolute left-2 w-3.5 h-3.5 text-[#aaa] pointer-events-none" />
             <input
               type="text"
+              data-search-input="true"
               value={query}
               onChange={e => setQuery(e.target.value)}
               placeholder="Search..."
-              className="pl-7 pr-7 py-1 text-[12px] bg-white border border-[#ddd] rounded-lg focus:outline-none focus:border-[#999] w-48 placeholder:text-[#bbb]"
+              className="pl-7 pr-12 py-1 text-[12px] bg-white border border-[#ddd] rounded-lg focus:outline-none focus:border-[#999] w-48 placeholder:text-[#bbb]"
             />
-            {query && (
-              <button onClick={() => setQuery('')} className="absolute right-2 top-1/2 -translate-y-1/2 text-[#aaa] hover:text-[#555]">
+            {query ? (
+              <button onClick={() => setQuery('')} className="absolute right-2 text-[#aaa] hover:text-[#555]">
                 <X className="w-3 h-3" />
               </button>
+            ) : (
+              <span className="absolute right-2 text-[9px] font-mono text-[#aaa] bg-[#f0f0f0] px-1 py-0.5 rounded pointer-events-none border border-[#e0e0e0]">
+                Ctrl+K
+              </span>
             )}
           </div>
           <button
