@@ -182,7 +182,6 @@ export default function ClientDashboard({ clientsData }: ClientDashboardProps) {
 
   const [filterFilingStatus, setFilterFilingStatus] = useState<string>('ALL');
   const [filterIncomeSource, setFilterIncomeSource] = useState<string>('ALL');
-  const [filterBotStatus, setFilterBotStatus] = useState<string>('ALL');
 
   const filtered = useMemo(() => {
     let result = clientsData;
@@ -212,21 +211,15 @@ export default function ClientDashboard({ clientsData }: ClientDashboardProps) {
       });
     }
 
-    // Bot status (onboarding) filter
-    if (filterBotStatus !== 'ALL') {
-      result = result.filter((c: any) => {
-        const f = c.itr_filings?.[0] || null;
-        return (f?.status || 'SERVICE_MENU') === filterBotStatus;
-      });
-    }
+
 
     return result;
-  }, [clientsData, query, filterFilingStatus, filterIncomeSource, filterBotStatus]);
+  }, [clientsData, query, filterFilingStatus, filterIncomeSource]);
 
   // Reset to first page when search query or any filter changes
   useMemo(() => {
     setCurrentPage(1);
-  }, [query, filterFilingStatus, filterIncomeSource, filterBotStatus]);
+  }, [query, filterFilingStatus, filterIncomeSource]);
 
   const paginatedClients = useMemo(() => {
     const start = (currentPage - 1) * pageSize;
@@ -325,28 +318,13 @@ export default function ClientDashboard({ clientsData }: ClientDashboardProps) {
           </select>
         </div>
 
-        <div className="flex items-center gap-1.5">
-          <span className="text-[#888]">Bot Status:</span>
-          <select
-            value={filterBotStatus}
-            onChange={e => setFilterBotStatus(e.target.value)}
-            className="px-2 py-1 bg-white border border-[#ddd] rounded-md focus:outline-none focus:border-[#999] text-[11px] text-[#333] cursor-pointer font-medium"
-          >
-            <option value="ALL">All Bot Statuses</option>
-            <option value="SERVICE_MENU">Service Selection</option>
-            <option value="AWAITING_FY_YEAR">Awaiting FY</option>
-            <option value="AWAITING_DOCS">Awaiting Docs</option>
-            <option value="COMPLETED">Completed</option>
-          </select>
-        </div>
 
         {/* Clear Filters Button (only shows if any filter is active) */}
-        {(filterFilingStatus !== 'ALL' || filterIncomeSource !== 'ALL' || filterBotStatus !== 'ALL' || query) && (
+        {(filterFilingStatus !== 'ALL' || filterIncomeSource !== 'ALL' || query) && (
           <button
             onClick={() => {
               setFilterFilingStatus('ALL');
               setFilterIncomeSource('ALL');
-              setFilterBotStatus('ALL');
               setQuery('');
             }}
             className="px-2 py-0.5 hover:bg-red-50 text-red-600 hover:text-red-700 font-semibold border border-dashed border-red-200 hover:border-red-300 rounded text-[10px] transition-all uppercase tracking-wider cursor-pointer"

@@ -8,7 +8,6 @@ All notable changes to the CA-bOt Frontend client dashboard will be documented i
   - Brought complete parity to the ITR Filing dashboard (`ClientDashboard.tsx`) with the same advanced monotone Excel-style layout.
   - **Filing Status Filter**: Dropdown to filter records by filing progression (Awaiting Docs, Docs Submitted, Docs Verified, Filing In Progress, Filed, or Rejected).
   - **Income Source Filter**: Dropdown to isolate specific client income classifications (Salaried, Business, Investor, or Property).
-  - **Bot Status Filter**: Dropdown to query client's active chat state (Service Selection, Awaiting FY, Awaiting Docs, or Completed).
   - **Clear Filters Utility**: Immediate action badge to restore all inputs.
   - **Pagination Footers**: Implemented exactly identical pagination controls with interactive next/previous triggers.
   - **Rows per Page Selection**: Configured standard high-density dropdown options (10, 25, 50, 100) resetting dynamic records layout.
