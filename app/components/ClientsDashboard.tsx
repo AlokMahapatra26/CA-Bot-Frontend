@@ -690,7 +690,7 @@ export default function ClientsDashboard({ clientsData }: ClientsDashboardProps)
                     <div className="flex items-center gap-1 flex-wrap">
                       {client.itr_filings && client.itr_filings.length > 0 ? (
                         <Link
-                          href="/"
+                          href="/itr"
                           className="inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider bg-blue-50 text-blue-700 border border-blue-200 rounded hover:bg-blue-100 hover:border-blue-300 transition-colors cursor-pointer"
                           title="View ITR Filing"
                         >

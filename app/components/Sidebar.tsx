@@ -9,7 +9,7 @@ import { siteData } from '@/app/site-data';
 const navItems = [
   { href: '/bot', label: 'WhatsApp Bot', icon: Wifi },
   { href: '/clients', label: 'Client Profiles', icon: Users },
-  { href: '/', label: 'ITR Filing', icon: FileText },
+  { href: '/itr', label: 'ITR Filing', icon: FileText },
   { href: '/gst', label: 'GST Filing', icon: Landmark },
   { href: '/dsc', label: 'DSC Management', icon: Key },
 ];

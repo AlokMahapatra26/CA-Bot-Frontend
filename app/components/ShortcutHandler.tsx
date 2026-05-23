@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 const navItems = [
   { href: '/bot', key: '1' },
   { href: '/clients', key: '2' },
-  { href: '/', key: '3' },
+  { href: '/itr', key: '3' },
   { href: '/gst', key: '4' },
   { href: '/dsc', key: '5' },
 ];

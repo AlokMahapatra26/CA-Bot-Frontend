@@ -1,46 +1,75 @@
-import { supabase } from '@/lib/supabase';
-import ClientDashboard from './components/ClientDashboard';
+import Link from 'next/link';
+import { Wifi, Users, FileText, Landmark, Key } from 'lucide-react';
 
-export const revalidate = 0;
+export default function RootDashboardPage() {
+  const modules = [
+    { href: '/bot', label: 'WhatsApp Bot Client', desc: 'Real-time message streams, chat control, and live status metrics.', icon: Wifi },
+    { href: '/clients', label: 'Client Profiles', desc: 'Manage master accountant assignments, approvals, and KYC status.', icon: Users },
+    { href: '/itr', label: 'ITR Filing Dashboard', desc: 'High-density client filings tracking, filtering, and custom doc preview.', icon: FileText },
+    { href: '/gst', label: 'GST Filing (Inactive)', desc: 'Goods and Services Tax document flow and returns verification.', icon: Landmark, disabled: true },
+    { href: '/dsc', label: 'DSC Management (Inactive)', desc: 'Digital Signature Certificate keys tracking and logs.', icon: Key, disabled: true },
+  ];
 
-export default async function DashboardPage() {
-  const { data: clientsData, error } = await supabase
-    .from('clients')
-    .select(`
-      *,
-      itr_filings (
-        id,
-        fy_year,
-        status,
-        filing_status,
-        income_source,
-        bank_name,
-        bank_account_number,
-        bank_ifsc,
-        form16_media_url,
-        bank_statement_media_url,
-        capital_gains_media_url,
-        property_docs_media_url,
-        other_docs_media_url,
-        notes,
-        updated_at
-      )
-    `)
-    .order('created_at', { ascending: false });
-
-  if (error) {
-    return (
-      <div className="bg-red-50 border border-red-200 text-red-800 p-4 rounded-lg">
-        <h2 className="font-semibold text-sm">Error Loading Data</h2>
-        <p className="text-xs mt-1">{error.message}</p>
+  return (
+    <div className="flex-1 bg-white flex flex-col overflow-hidden p-6">
+      {/* Monotone Header */}
+      <div className="border-b border-[#e5e5e5] pb-4 mb-6 shrink-0">
+        <span className="text-[10px] text-slate-400 uppercase tracking-widest font-medium">DAV LABS SYSTEM ARCHITECTURE</span>
+        <h1 className="text-[18px] font-bold text-slate-900 tracking-tight mt-0.5">Firm Command Dashboard</h1>
+        <p className="text-[12px] text-slate-500 mt-1 leading-relaxed">
+          Welcome to the CA-BOT administrative control system. Select an active service module from the overview or sidebar navigation to get started.
+        </p>
       </div>
-    );
-  }
 
-  // Only display clients who have actively opted in for ITR filing
-  const activeItrClients = (clientsData || []).filter(
-    (client: any) => client.itr_filings && client.itr_filings.length > 0
+      {/* Grid of Modules */}
+      <div className="flex-1 overflow-auto max-w-4xl">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {modules.map(({ href, label, desc, icon: Icon, disabled }) => {
+            if (disabled) {
+              return (
+                <div 
+                  key={label}
+                  className="border border-[#e5e5e5] bg-[#fafafa]/50 p-4 rounded-xl opacity-60 flex flex-col justify-between h-[120px]"
+                >
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <Icon className="w-4 h-4 text-slate-400" />
+                      <h3 className="text-[12px] font-bold text-slate-400 uppercase tracking-wider">{label}</h3>
+                    </div>
+                    <p className="text-[11px] text-slate-400 mt-1.5 leading-relaxed">{desc}</p>
+                  </div>
+                  <span className="text-[9px] text-slate-400 font-medium uppercase tracking-wider select-none">Coming Soon</span>
+                </div>
+              );
+            }
+
+            return (
+              <Link 
+                key={label}
+                href={href}
+                className="border border-[#e5e5e5] bg-white hover:border-[#aaa] p-4 rounded-xl flex flex-col justify-between h-[120px] transition-all group"
+              >
+                <div>
+                  <div className="flex items-center gap-2">
+                    <Icon className="w-4 h-4 text-slate-700" />
+                    <h3 className="text-[12px] font-bold text-slate-800 uppercase tracking-wider group-hover:text-blue-600 transition-colors">{label}</h3>
+                  </div>
+                  <p className="text-[11px] text-slate-500 mt-1.5 leading-relaxed">{desc}</p>
+                </div>
+                <span className="text-[9px] text-blue-600 font-bold uppercase tracking-wider group-hover:translate-x-0.5 transition-transform inline-flex items-center gap-1 select-none">
+                  Open Module &rarr;
+                </span>
+              </Link>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Monotone Footer */}
+      <div className="border-t border-[#e5e5e5] pt-4 mt-6 flex items-center justify-between text-[9px] text-slate-400 font-medium tracking-wide shrink-0">
+        <span>dav_labs_sys.v1.0.0</span>
+        <span>© {new Date().getFullYear()} DAV Labs All Rights Reserved</span>
+      </div>
+    </div>
   );
-
-  return <ClientDashboard clientsData={activeItrClients} />;
 }

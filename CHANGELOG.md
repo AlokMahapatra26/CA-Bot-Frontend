@@ -2,6 +2,16 @@
 
 All notable changes to the CA-bOt Frontend client dashboard will be documented in this file.
 
+## [1.15.0] - 2026-05-23
+### Added
+- **ITR Filing Route Relocation**:
+  - Relocated the entire ITR Filing Dashboard from the root `/` page to a dedicated, clean `/itr` route.
+  - Updated all sidebar navigation menu linkages and the `Alt + 3` global keyboard routing handlers to redirect dynamically to `/itr`.
+  - Updated the active "Services" table cell shortcut badge on the client profiles dashboard to point directly to `/itr`.
+- **Root Executive Dashboard Gateway**:
+  - Created a professional, minimalist executive gateway page at the root `/` URL.
+  - Features an intuitive modular overview showing all active systems (WhatsApp Bot, Client Profiles, ITR Filing) and placeholders for coming-soon systems (GST, DSC).
+
 ## [1.14.0] - 2026-05-23
 ### Added
 - **Raw, Ultra-Minimalist Sans-Serif Conversation State Tree**:
