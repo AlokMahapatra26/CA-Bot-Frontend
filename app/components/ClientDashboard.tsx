@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import { CheckCircle2, Clock, Download, Search, X, FileText, RefreshCw, Briefcase, Building2, TrendingUp, Home, GitFork } from 'lucide-react';
+import { CheckCircle2, Clock, Download, Search, X, FileText, RefreshCw, Briefcase, Building2, TrendingUp, Home, GitFork, Megaphone } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import DeleteButton from './DeleteButton';
 import FilingStatusSelect from './FilingStatusSelect';
@@ -181,6 +181,11 @@ export default function ClientDashboard({ clientsData }: ClientDashboardProps) {
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
 
+  const [showBroadcastModal, setShowBroadcastModal] = useState(false);
+  const [broadcastMsgText, setBroadcastMsgText] = useState('');
+  const [confirmBroadcastSafety, setConfirmBroadcastSafety] = useState(false);
+  const [broadcastingMsg, setBroadcastingMsg] = useState(false);
+
   const [filterFilingStatus, setFilterFilingStatus] = useState<string>('ALL');
   const [filterIncomeSource, setFilterIncomeSource] = useState<string>('ALL');
 
@@ -281,6 +286,13 @@ export default function ClientDashboard({ clientsData }: ClientDashboardProps) {
           <span className="text-[11px] text-[#999]">{filtered.length} records</span>
         </div>
         <div className="flex items-center gap-2">
+          <button
+            onClick={() => setShowBroadcastModal(true)}
+            className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-semibold text-white bg-indigo-600 hover:bg-indigo-700 border border-indigo-700 hover:border-indigo-800 rounded-lg hover:shadow-sm active:scale-[0.98] transition-all duration-150"
+          >
+            <Megaphone className="w-3.5 h-3.5 text-indigo-100" />
+            <span>Broadcast Message</span>
+          </button>
           <button
             onClick={() => setShowDecisionTree(true)}
             className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-semibold text-[#555] bg-white border border-[#ddd] rounded-lg hover:border-[#aaa] transition-colors"
@@ -556,11 +568,149 @@ export default function ClientDashboard({ clientsData }: ClientDashboardProps) {
         </div>
       )}
       {activePreviewDoc && (
-        <DocPreviewModal
-          isOpen={!!activePreviewDoc}
-          onClose={() => setActivePreviewDoc(null)}
-          doc={activePreviewDoc}
-        />
+          <DocPreviewModal
+            isOpen={!!activePreviewDoc}
+            onClose={() => setActivePreviewDoc(null)}
+            doc={activePreviewDoc}
+          />
+      )}
+      
+      {/* Broadcast Modal Dialog */}
+      {showBroadcastModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-[1px] p-4 animate-in fade-in duration-200">
+          <div className="bg-white border border-slate-100 rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden transform transition-all duration-300">
+            {/* Header */}
+            <div className="bg-gradient-to-r from-indigo-50 to-slate-50 px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="p-1.5 bg-indigo-100 rounded-lg text-indigo-700">
+                  <Megaphone className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-slate-800 tracking-wide uppercase">
+                    Broadcast WhatsApp Message
+                  </h3>
+                  <p className="text-[10px] text-slate-500 font-medium normal-case mt-0.5">
+                    Send updates to all {filtered.length} active ITR clients
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  setShowBroadcastModal(false);
+                  setBroadcastMsgText('');
+                  setConfirmBroadcastSafety(false);
+                }}
+                className="w-6 h-6 rounded-full hover:bg-slate-200/60 flex items-center justify-center text-slate-400 hover:text-slate-700 text-[11px] font-semibold transition-colors"
+              >
+                ✕
+              </button>
+            </div>
+            
+            {/* Body */}
+            <div className="p-5 space-y-4">
+              {/* Warnings box */}
+              <div className="bg-amber-50/70 border border-amber-100 rounded-xl p-3.5 text-[11px] leading-relaxed text-amber-800 space-y-1">
+                <span className="font-bold flex items-center gap-1">
+                  ⚠️ CRITICAL NOTICE
+                </span>
+                <p>
+                  This action will broadcast this message to **every single person** currently filtered in your view ({filtered.length} recipients). Please ensure the message content is accurate before sending.
+                </p>
+              </div>
+
+              {/* Text Area */}
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between text-[11px] font-semibold text-slate-600">
+                  <label>Message Content</label>
+                  <span className="text-[10px] text-slate-400 font-normal">
+                    {broadcastMsgText.length} characters
+                  </span>
+                </div>
+                <textarea
+                  value={broadcastMsgText}
+                  onChange={(e) => setBroadcastMsgText(e.target.value)}
+                  rows={5}
+                  placeholder="Type your broadcast announcement..."
+                  className="w-full px-3 py-2 text-[12px] bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-indigo-500 focus:bg-white transition-all font-sans placeholder:text-slate-400 leading-normal"
+                />
+              </div>
+
+              {/* Safety Checkbox */}
+              <label className="flex items-start gap-2.5 p-3 bg-slate-50 border border-slate-100 rounded-xl cursor-pointer hover:bg-slate-100/50 transition-colors">
+                <input
+                  type="checkbox"
+                  checked={confirmBroadcastSafety}
+                  onChange={(e) => setConfirmBroadcastSafety(e.target.checked)}
+                  className="mt-0.5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                />
+                <span className="text-[11px] text-slate-700 font-medium select-none leading-normal">
+                  I confirm that I want to send this broadcast message to all {filtered.length} active clients.
+                </span>
+              </label>
+
+              {/* Action Buttons */}
+              <div className="flex items-center justify-end gap-2.5 pt-2">
+                <button
+                  onClick={() => {
+                    setShowBroadcastModal(false);
+                    setBroadcastMsgText('');
+                    setConfirmBroadcastSafety(false);
+                  }}
+                  className="px-4 py-2 text-[11px] font-semibold text-slate-700 bg-slate-50 border border-slate-200 rounded-xl hover:bg-slate-100 hover:border-slate-300 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={async () => {
+                    if (!broadcastMsgText.trim()) {
+                      alert('⚠️ Please type a message before broadcasting!');
+                      return;
+                    }
+                    if (!confirmBroadcastSafety) {
+                      alert('⚠️ Please check the safety confirmation box to proceed.');
+                      return;
+                    }
+                    setBroadcastingMsg(true);
+                    try {
+                      const res = await fetch('http://localhost:4000/api/broadcast-message', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ text: broadcastMsgText }),
+                      });
+                      const data = await res.json();
+                      if (res.ok && data.success) {
+                        alert(`🎉 Broadcast sent successfully!\nSuccessfully sent: ${data.count}\nFailed: ${data.failed}`);
+                        setShowBroadcastModal(false);
+                        setBroadcastMsgText('');
+                        setConfirmBroadcastSafety(false);
+                      } else {
+                        alert(`❌ Failed to send broadcast message: ${data.error || 'Server error'}`);
+                      }
+                    } catch {
+                      alert('❌ Failed to connect to WhatsApp backend server.');
+                    } finally {
+                      setBroadcastingMsg(false);
+                    }
+                  }}
+                  disabled={broadcastingMsg}
+                  className="px-4 py-2 text-[11px] font-semibold text-white bg-indigo-600 rounded-xl hover:bg-indigo-700 active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none transition-all flex items-center gap-1.5 shadow-sm hover:shadow"
+                >
+                  {broadcastingMsg ? (
+                    <>
+                      <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                      <span>Sending Broadcast...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Megaphone className="w-3.5 h-3.5" />
+                      <span>Send Broadcast</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
       {/* Bot Decision Tree Modal */}
       {showDecisionTree && (
