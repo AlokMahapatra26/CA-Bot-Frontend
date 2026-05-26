@@ -1,8 +1,8 @@
 'use client';
 
-import { useState, useMemo, useTransition } from 'react';
+import { useState, useMemo, useTransition, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { CheckCircle2, Clock, Download, Search, X, FileText, RefreshCw, Briefcase, Building2, TrendingUp, Home, GitFork, Megaphone } from 'lucide-react';
+import { CheckCircle2, Clock, Download, Search, X, FileText, RefreshCw, Briefcase, Building2, TrendingUp, Home, GitFork, Megaphone, Bell, Sliders, FlaskConical, Sparkles } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import DeleteButton from './DeleteButton';
 import FilingStatusSelect from './FilingStatusSelect';
@@ -186,6 +186,40 @@ export default function ClientDashboard({ clientsData }: ClientDashboardProps) {
   const [confirmBroadcastSafety, setConfirmBroadcastSafety] = useState(false);
   const [broadcastingMsg, setBroadcastingMsg] = useState(false);
 
+  const [showReminderModal, setShowReminderModal] = useState(false);
+  const [reminderEnabled, setReminderEnabled] = useState(false);
+  const [reminderInterval, setReminderInterval] = useState(24);
+  const [reminderIsTesting, setReminderIsTesting] = useState(false);
+  const [reminderLastRun, setReminderLastRun] = useState<string | null>(null);
+  const [reminderNextRun, setReminderNextRun] = useState<string | null>(null);
+  const [reminderActiveClients, setReminderActiveClients] = useState<any[]>([]);
+  const [loadingReminderStatus, setLoadingReminderStatus] = useState(false);
+  const [savingReminderSettings, setSavingReminderSettings] = useState(false);
+  const [triggeringReminders, setTriggeringReminders] = useState(false);
+
+  const fetchReminderStatus = async () => {
+    try {
+      const res = await fetch('http://localhost:4000/api/reminders/status');
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success) {
+          setReminderEnabled(data.enabled);
+          setReminderInterval(data.intervalHours);
+          setReminderIsTesting(!!data.isTesting);
+          setReminderLastRun(data.lastRun);
+          setReminderNextRun(data.nextRun);
+          setReminderActiveClients(data.activeClients || []);
+        }
+      }
+    } catch (err) {
+      console.warn('Failed to fetch reminder status:', err);
+    }
+  };
+
+  useEffect(() => {
+    fetchReminderStatus();
+  }, []);
+
   const [filterFilingStatus, setFilterFilingStatus] = useState<string>('ALL');
   const [filterIncomeSource, setFilterIncomeSource] = useState<string>('ALL');
 
@@ -292,6 +326,17 @@ export default function ClientDashboard({ clientsData }: ClientDashboardProps) {
           >
             <Megaphone className="w-3.5 h-3.5 text-indigo-100" />
             <span>Broadcast Message</span>
+          </button>
+          <button
+            onClick={() => {
+              fetchReminderStatus();
+              setShowReminderModal(true);
+            }}
+            className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-semibold text-[#444] bg-white border border-[#ddd] rounded-lg hover:border-[#aaa] transition-colors relative"
+          >
+            <Bell className="w-3.5 h-3.5 text-slate-500" />
+            <span>Reminder Settings</span>
+            <span className={`w-1.5 h-1.5 rounded-full ${reminderEnabled ? 'bg-emerald-500 animate-pulse' : 'bg-slate-300'}`} />
           </button>
           <button
             onClick={() => setShowDecisionTree(true)}
@@ -712,6 +757,303 @@ export default function ClientDashboard({ clientsData }: ClientDashboardProps) {
           </div>
         </div>
       )}
+      
+      {/* Reminder Settings Modal Dialog */}
+      {showReminderModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-[1px] p-4 animate-in fade-in duration-200">
+          <div className="bg-white border border-slate-100 rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden transform transition-all duration-300">
+            {/* Header */}
+            <div className="bg-gradient-to-r from-slate-50 to-slate-100 px-5 py-4 border-b border-slate-200 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="p-1.5 bg-slate-200 rounded-lg text-slate-700">
+                  <Bell className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-slate-800 tracking-wide uppercase">
+                    Auto Reminder Settings
+                  </h3>
+                  <p className="text-[10px] text-slate-500 font-medium normal-case mt-0.5">
+                    WhatsApp document reminders scheduling
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowReminderModal(false)}
+                className="w-6 h-6 rounded-full hover:bg-slate-200/60 flex items-center justify-center text-slate-400 hover:text-slate-700 text-[11px] font-semibold transition-colors"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Body */}
+            <div className="p-5 space-y-4">
+              {/* Quick Status Info Banner */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between p-3.5 bg-slate-50 border border-slate-150 rounded-xl">
+                  <div className="space-y-0.5">
+                    <span className="text-[11px] font-bold text-slate-700 uppercase tracking-wide">
+                      Scheduler Status
+                    </span>
+                    <p className="text-[10.5px] text-slate-500 font-medium leading-relaxed">
+                      {reminderEnabled 
+                        ? `Active • Runs every ${reminderInterval} ${reminderIsTesting ? 'seconds' : 'hours'}`
+                        : 'Inactive • Automatic reminders are paused'}
+                    </p>
+                  </div>
+                  
+                  {/* Custom Toggle Switch */}
+                  <button
+                    onClick={async () => {
+                      const newEnabled = !reminderEnabled;
+                      setSavingReminderSettings(true);
+                      try {
+                        const res = await fetch('http://localhost:4000/api/reminders/toggle', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ enabled: newEnabled, intervalHours: reminderInterval, isTesting: reminderIsTesting }),
+                        });
+                        const data = await res.json();
+                        if (res.ok && data.success) {
+                          setReminderEnabled(data.enabled);
+                          setReminderInterval(data.intervalHours);
+                          setReminderIsTesting(!!data.isTesting);
+                          setReminderLastRun(data.lastRun);
+                          setReminderNextRun(data.nextRun);
+                        } else {
+                          alert(`Failed to save settings: ${data.error || 'Unknown error'}`);
+                        }
+                      } catch {
+                        alert('Failed to connect to WhatsApp backend.');
+                      } finally {
+                        setSavingReminderSettings(false);
+                      }
+                    }}
+                    disabled={savingReminderSettings}
+                    className={`w-9 h-5 rounded-full p-0.5 transition-colors duration-250 focus:outline-none flex items-center ${
+                      reminderEnabled ? 'bg-indigo-600' : 'bg-slate-300'
+                    }`}
+                  >
+                    <div
+                      className={`bg-white w-4 h-4 rounded-full shadow transform duration-250 ${
+                        reminderEnabled ? 'translate-x-4' : 'translate-x-0'
+                      }`}
+                    />
+                  </button>
+                </div>
+
+                {/* Fast Testing Mode Switch */}
+                <div className="flex items-center justify-between p-3.5 bg-slate-50/50 border border-slate-150 rounded-xl">
+                  <div className="space-y-0.5">
+                    <span className="text-[11px] font-bold text-slate-700 uppercase tracking-wide flex items-center gap-1.5">
+                      <FlaskConical className="w-3.5 h-3.5 text-indigo-500" />
+                      <span>Fast Testing Mode</span>
+                    </span>
+                    <p className="text-[10px] text-slate-500 font-medium leading-relaxed">
+                      Treat interval in *seconds* for rapid cron loop testing.
+                    </p>
+                  </div>
+
+                  <button
+                    onClick={async () => {
+                      const newTesting = !reminderIsTesting;
+                      const newInterval = newTesting ? 10 : 24; // Default to 10s or 24h
+                      setSavingReminderSettings(true);
+                      try {
+                        const res = await fetch('http://localhost:4000/api/reminders/toggle', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ enabled: reminderEnabled, intervalHours: newInterval, isTesting: newTesting }),
+                        });
+                        const data = await res.json();
+                        if (res.ok && data.success) {
+                          setReminderEnabled(data.enabled);
+                          setReminderInterval(data.intervalHours);
+                          setReminderIsTesting(!!data.isTesting);
+                          setReminderLastRun(data.lastRun);
+                          setReminderNextRun(data.nextRun);
+                        } else {
+                          alert(`Failed to save settings: ${data.error || 'Unknown error'}`);
+                        }
+                      } catch {
+                        alert('Failed to connect to WhatsApp backend.');
+                      } finally {
+                        setSavingReminderSettings(false);
+                      }
+                    }}
+                    disabled={savingReminderSettings}
+                    className={`w-9 h-5 rounded-full p-0.5 transition-colors duration-250 focus:outline-none flex items-center ${
+                      reminderIsTesting ? 'bg-indigo-600' : 'bg-slate-300'
+                    }`}
+                  >
+                    <div
+                      className={`bg-white w-4 h-4 rounded-full shadow transform duration-250 ${
+                        reminderIsTesting ? 'translate-x-4' : 'translate-x-0'
+                      }`}
+                    />
+                  </button>
+                </div>
+              </div>
+
+              {/* Interval Selection Slider/Select */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between text-[11px] font-semibold text-slate-700">
+                  <label className="flex items-center gap-1">
+                    <Sliders className="w-3.5 h-3.5 text-slate-400" />
+                    <span>Interval Frequency</span>
+                  </label>
+                  <span className="text-[10.5px] text-indigo-600 font-bold bg-indigo-50 px-2 py-0.5 rounded">
+                    Every {reminderInterval} {reminderIsTesting ? 'Seconds' : 'Hours'}
+                  </span>
+                </div>
+                <input
+                  type="range"
+                  min={reminderIsTesting ? 5 : 1}
+                  max={reminderIsTesting ? 60 : 48}
+                  value={reminderInterval}
+                  onChange={(e) => setReminderInterval(Number(e.target.value))}
+                  onMouseUp={async () => {
+                    setSavingReminderSettings(true);
+                    try {
+                      const res = await fetch('http://localhost:4000/api/reminders/toggle', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ enabled: reminderEnabled, intervalHours: reminderInterval, isTesting: reminderIsTesting }),
+                      });
+                      const data = await res.json();
+                      if (res.ok && data.success) {
+                        setReminderEnabled(data.enabled);
+                        setReminderInterval(data.intervalHours);
+                        setReminderIsTesting(!!data.isTesting);
+                        setReminderLastRun(data.lastRun);
+                        setReminderNextRun(data.nextRun);
+                      }
+                    } catch (err) {
+                      console.error('Failed to update interval:', err);
+                    } finally {
+                      setSavingReminderSettings(false);
+                    }
+                  }}
+                  className="w-full h-1 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-indigo-600"
+                />
+                <div className="flex justify-between text-[9px] font-mono text-slate-400">
+                  {reminderIsTesting ? (
+                    <>
+                      <span>5 Seconds</span>
+                      <span>15s</span>
+                      <span>30s (Default)</span>
+                      <span>45s</span>
+                      <span>60 Seconds</span>
+                    </>
+                  ) : (
+                    <>
+                      <span>1 Hour</span>
+                      <span>12h</span>
+                      <span>24 Hours (Default)</span>
+                      <span>36h</span>
+                      <span>48 Hours</span>
+                    </>
+                  )}
+                </div>
+              </div>
+
+              {/* Targets Summary List */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between text-[11px] font-semibold text-slate-700">
+                  <span>Active Targets ({reminderActiveClients.length})</span>
+                  {reminderEnabled && reminderNextRun && (
+                    <span className="text-[9.5px] text-slate-500 font-medium">
+                      Next run: {new Date(reminderNextRun).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    </span>
+                  )}
+                </div>
+                
+                {reminderActiveClients.length > 0 ? (
+                  <div className="border border-slate-100 rounded-xl overflow-hidden max-h-36 overflow-y-auto divide-y divide-slate-50 bg-slate-50/50">
+                    {reminderActiveClients.map((c, i) => (
+                      <div key={i} className="px-3 py-2 flex items-center justify-between text-[11px]">
+                        <span className="font-semibold text-slate-700 truncate max-w-[150px]">
+                          {c.clientName}
+                        </span>
+                        <span className="text-[10px] text-indigo-600 font-bold bg-indigo-50 px-2 py-0.5 rounded border border-indigo-100/50">
+                          {c.pendingDoc}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="border border-dashed border-slate-200 rounded-xl p-6 text-center space-y-1 bg-slate-50/20">
+                    <span className="text-[11px] font-bold text-slate-650 flex justify-center gap-1.5 items-center">
+                      <Sparkles className="w-3.5 h-3.5 text-indigo-500" />
+                      <span>ALL CLEAR</span>
+                    </span>
+                    <p className="text-[10px] text-slate-500 leading-normal">
+                      No clients are currently stuck awaiting ITR documents!
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              {/* Log History Info */}
+              {reminderLastRun && (
+                <div className="flex items-center gap-1.5 text-[9.5px] font-medium text-slate-400 justify-center">
+                  <span>Last Executed:</span>
+                  <span className="font-mono text-slate-500">
+                    {new Date(reminderLastRun).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}
+                  </span>
+                </div>
+              )}
+
+              {/* Action Buttons */}
+              <div className="flex items-center justify-between gap-2.5 pt-2 border-t border-slate-100">
+                <button
+                  onClick={async () => {
+                    if (triggeringReminders) return;
+                    setTriggeringReminders(true);
+                    try {
+                      const res = await fetch('http://localhost:4000/api/reminders/trigger', {
+                        method: 'POST'
+                      });
+                      const data = await res.json();
+                      if (res.ok && data.success) {
+                        alert(`🎉 Reminders run executed successfully!\nTotal messages sent: ${data.count}\nFailed: ${data.failed}`);
+                        fetchReminderStatus();
+                      } else {
+                        alert(`❌ Reminder run failed: ${data.error || 'Server error'}`);
+                      }
+                    } catch {
+                      alert('❌ Failed to connect to WhatsApp backend.');
+                    } finally {
+                      setTriggeringReminders(false);
+                    }
+                  }}
+                  disabled={triggeringReminders}
+                  className="px-4 py-2 text-[11px] font-bold text-indigo-600 bg-indigo-50 border border-indigo-150 rounded-xl hover:bg-indigo-100 active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none transition-all flex items-center gap-1.5 shadow-sm"
+                >
+                  {triggeringReminders ? (
+                    <>
+                      <span className="w-3.5 h-3.5 border-2 border-indigo-600/30 border-t-indigo-600 rounded-full animate-spin" />
+                      <span>Sending Alerts...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Bell className="w-3.5 h-3.5 text-indigo-600" />
+                      <span>Send Reminders Now</span>
+                    </>
+                  )}
+                </button>
+
+                <button
+                  onClick={() => setShowReminderModal(false)}
+                  className="px-4 py-2 text-[11px] font-semibold text-slate-700 bg-slate-50 border border-slate-200 rounded-xl hover:bg-slate-100 hover:border-slate-300 transition-colors shadow-sm"
+                >
+                  Close Settings
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      
       {/* Bot Decision Tree Modal */}
       {showDecisionTree && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/35 backdrop-blur-[0.5px] p-4 animate-in fade-in duration-150">

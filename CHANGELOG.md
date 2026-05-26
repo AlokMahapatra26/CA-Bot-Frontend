@@ -2,6 +2,14 @@
 
 All notable changes to the CA-bOt Frontend client dashboard will be documented in this file.
 
+## [1.17.0] - 2026-05-26
+### Added
+- **Centralized Document Reminder Settings Panel**:
+  - Integrated a new "Reminder Settings" control button directly within the ITR Filing toolbar.
+  - Features an active, real-time pulse beacon indicating if the auto-scheduler is enabled (green) or paused (gray).
+  - Developed a high-density, glassmorphic Settings modal containing scheduler toggles, adjustable interval range sliders (1h - 48h), last executed logs, and active target lists.
+  - Implemented a "Send Reminders Now" action button inside the modal to manually invoke sequential broadcasts instantly with spinner loaders.
+
 ## [1.16.0] - 2026-05-23
 ### Added
 - **Integrated Active Services Selection in Profiles Dashboard**:
