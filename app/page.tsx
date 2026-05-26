@@ -66,8 +66,7 @@ export default function RootDashboardPage() {
       </div>
 
       {/* Monotone Footer */}
-      <div className="border-t border-[#e5e5e5] pt-4 mt-6 flex items-center justify-between text-[9px] text-slate-400 font-medium tracking-wide shrink-0">
-        <span>dav_labs_sys.v1.0.0</span>
+      <div className="border-t border-[#e5e5e5] pt-4 mt-6 flex items-center justify-end text-[9px] text-slate-400 font-medium tracking-wide shrink-0">
         <span>© {new Date().getFullYear()} DAV Labs All Rights Reserved</span>
       </div>
     </div>

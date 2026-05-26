@@ -528,6 +528,7 @@ export async function updateClientProfile(clientId: string, updates: {
   date_of_birth?: string | null;
   account_status?: string;
   bot_status?: string;
+  has_itr?: boolean;
 }) {
   try {
     let phone = updates.phone_number.replace(/\D/g, '');
@@ -550,6 +551,33 @@ export async function updateClientProfile(clientId: string, updates: {
       .eq('id', clientId);
 
     if (error) throw new Error(error.message);
+
+    // Sync ITR filing active status
+    if (updates.has_itr !== undefined) {
+      if (updates.has_itr) {
+        const { data: existing } = await serverSupabase
+          .from('itr_filings')
+          .select('id')
+          .eq('client_id', clientId)
+          .maybeSingle();
+
+        if (!existing) {
+          await serverSupabase
+            .from('itr_filings')
+            .insert({
+              client_id: clientId,
+              fy_year: '2025-2026',
+              status: 'AWAITING_INCOME_SOURCE',
+              filing_status: 'AWAITING_DOCS'
+            });
+        }
+      } else {
+        await serverSupabase
+          .from('itr_filings')
+          .delete()
+          .eq('client_id', clientId);
+      }
+    }
 
     revalidatePath('/clients');
     revalidatePath('/');
@@ -616,6 +644,7 @@ export async function createClientProfile(client: {
   email?: string | null;
   date_of_birth?: string | null;
   account_status?: string;
+  has_itr?: boolean;
 }) {
   try {
     let phone = client.phone_number.replace(/\D/g, '');
@@ -624,7 +653,7 @@ export async function createClientProfile(client: {
     }
     const jid = phone ? `${phone}@s.whatsapp.net` : null;
 
-    const { error } = await serverSupabase
+    const { data: inserted, error } = await serverSupabase
       .from('clients')
       .insert({
         full_name: client.full_name.trim(),
@@ -634,9 +663,23 @@ export async function createClientProfile(client: {
         date_of_birth: client.date_of_birth || null,
         account_status: client.account_status || 'APPROVED',
         bot_status: 'REGISTERED',
-      });
+      })
+      .select('id')
+      .single();
 
     if (error) throw new Error(error.message);
+
+    // Sync ITR filing active status
+    if (client.has_itr && inserted) {
+      await serverSupabase
+        .from('itr_filings')
+        .insert({
+          client_id: inserted.id,
+          fy_year: '2025-2026',
+          status: 'AWAITING_INCOME_SOURCE',
+          filing_status: 'AWAITING_DOCS'
+        });
+    }
 
     revalidatePath('/clients');
     revalidatePath('/');

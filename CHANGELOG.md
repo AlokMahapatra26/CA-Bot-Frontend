@@ -2,6 +2,14 @@
 
 All notable changes to the CA-bOt Frontend client dashboard will be documented in this file.
 
+## [1.16.0] - 2026-05-23
+### Added
+- **Integrated Active Services Selection in Profiles Dashboard**:
+  - Implemented an elegant "Active Services" checkbox section in the Add New Client and Edit Profile modals.
+  - Linked the profile form checkbox dynamically to Supabase database transaction actions.
+  - Creating a client with the "ITR Filing" service checked automatically initializes a standard, blank ITR progress record (`itr_filings`) linked to their profile.
+  - Editing a profile and checking/unchecking the "ITR Filing" checkbox dynamically creates or unlinks/deletes the respective record in `itr_filings` cleanly in real-time.
+
 ## [1.15.0] - 2026-05-23
 ### Added
 - **ITR Filing Route Relocation**:

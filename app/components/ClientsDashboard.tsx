@@ -473,7 +473,8 @@ export default function ClientsDashboard({ clientsData }: ClientsDashboardProps)
                 email: '',
                 date_of_birth: '',
                 account_status: 'APPROVED',
-                bot_status: 'REGISTERED'
+                bot_status: 'REGISTERED',
+                has_itr: false
               });
             }}
             className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-medium text-[#555] bg-white border border-[#ddd] rounded-lg hover:border-[#aaa] transition-colors"
@@ -743,7 +744,8 @@ export default function ClientsDashboard({ clientsData }: ClientsDashboardProps)
                             email: client.email || '',
                             date_of_birth: client.date_of_birth || '',
                             account_status: client.account_status || 'PENDING',
-                            bot_status: client.bot_status || 'REGISTERED'
+                            bot_status: client.bot_status || 'REGISTERED',
+                            has_itr: !!(client.itr_filings && client.itr_filings.length > 0)
                           });
                         }}
                         className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-medium text-[#555] bg-white border border-[#ddd] rounded-lg hover:border-[#aaa] transition-colors"
@@ -1015,6 +1017,23 @@ export default function ClientsDashboard({ clientsData }: ClientsDashboardProps)
                   <option value="PENDING">Pending</option>
                   <option value="REJECTED">Rejected</option>
                 </select>
+              </div>
+
+              {/* Active Services */}
+              <div className="space-y-1.5 pt-1">
+                <label className="text-[11px] font-semibold text-[#555] uppercase tracking-wider block">Active Services</label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    id="has_itr"
+                    checked={editForm.has_itr || false}
+                    onChange={(e) => setEditForm({ ...editForm, has_itr: e.target.checked })}
+                    className="w-3.5 h-3.5 text-blue-600 border-[#ddd] rounded focus:ring-blue-500 cursor-pointer"
+                  />
+                  <label htmlFor="has_itr" className="text-[12px] text-slate-700 font-medium cursor-pointer select-none">
+                    ITR Filing (Income Tax Return)
+                  </label>
+                </div>
               </div>
 
               {/* Action Buttons */}
