@@ -3,19 +3,13 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useState, useEffect } from 'react';
-import { FileText, Wifi, PanelLeftClose, PanelLeft, Users, Landmark, Key, Keyboard, History } from 'lucide-react';
+import { FileText, Wifi, PanelLeftClose, PanelLeft, Users, Landmark, Key, Keyboard, History, LogOut, Users2 } from 'lucide-react';
 import { siteData } from '@/app/site-data';
-
-const navItems = [
-  { href: '/bot', label: 'WhatsApp Bot', icon: Wifi },
-  { href: '/clients', label: 'Client Profiles', icon: Users },
-  { href: '/itr', label: 'ITR Filing', icon: FileText },
-  { href: '/gst', label: 'GST Filing', icon: Landmark },
-  { href: '/dsc', label: 'DSC Management', icon: Key },
-];
+import { useAuth } from '@/app/components/AuthProvider';
 
 export default function Sidebar() {
   const pathname = usePathname();
+  const { profile, signOut } = useAuth();
   const [collapsed, setCollapsed] = useState(false);
   const [status, setStatus] = useState<'connected' | 'connecting' | 'disconnected'>('disconnected');
   const [botNumber, setBotNumber] = useState<string | null>(null);
@@ -24,6 +18,21 @@ export default function Sidebar() {
   const [changelogData, setChangelogData] = useState<{ frontend: string; backend: string } | null>(null);
   const [loadingChangelog, setLoadingChangelog] = useState(false);
   const [activeChangelogTab, setActiveChangelogTab] = useState<'frontend' | 'backend'>('frontend');
+
+  // Dynamic navItems based on role
+  const navItems = [];
+  if (profile?.role === 'admin' || profile?.role === 'hod') {
+    navItems.push({ href: '/bot', label: 'WhatsApp Bot', icon: Wifi });
+  }
+  navItems.push({ href: '/clients', label: 'Client Profiles', icon: Users });
+  navItems.push({ href: '/itr', label: 'ITR Filing', icon: FileText });
+  if (profile?.role === 'admin' || profile?.role === 'hod') {
+    navItems.push({ href: '/gst', label: 'GST Filing', icon: Landmark });
+    navItems.push({ href: '/dsc', label: 'DSC Management', icon: Key });
+  }
+  if (profile?.role === 'admin') {
+    navItems.push({ href: '/team', label: 'Team Members', icon: Users2 });
+  }
 
   useEffect(() => {
     const poll = async () => {
@@ -173,6 +182,40 @@ export default function Sidebar() {
           {!collapsed && <span className="truncate text-left">Changelog</span>}
         </button>
       </nav>
+
+      {/* User Session Profile & Sign Out */}
+      <div className="border-t border-[#e0e0e0] p-2 bg-[#fafafa]">
+        {collapsed ? (
+          <button
+            onClick={signOut}
+            title={`Sign Out (${profile?.email})`}
+            className="w-8 h-8 mx-auto flex items-center justify-center rounded-lg hover:bg-red-50 text-slate-500 hover:text-red-600 transition-colors cursor-pointer"
+          >
+            <LogOut className="w-4 h-4" />
+          </button>
+        ) : (
+          <div className="flex flex-col gap-2 p-1.5">
+            <div className="min-w-0">
+              <div className="text-[12px] font-bold text-slate-800 truncate" title={profile?.full_name || 'User Profile'}>
+                {profile?.full_name || profile?.email?.split('@')[0]}
+              </div>
+              <div className="flex items-center gap-1.5 mt-0.5">
+                <span className="text-[9px] uppercase tracking-wider font-semibold text-slate-400">
+                  {profile?.role || 'employee'}
+                </span>
+              </div>
+            </div>
+            
+            <button
+              onClick={signOut}
+              className="flex items-center justify-center gap-1.5 w-full py-1 px-2 border border-slate-200 hover:border-red-200 hover:bg-red-50/50 rounded-lg text-[11px] font-semibold text-slate-600 hover:text-red-600 transition-all cursor-pointer mt-1"
+            >
+              <LogOut className="w-3 h-3" />
+              <span>Sign Out</span>
+            </button>
+          </div>
+        )}
+      </div>
 
       {/* Status */}
       <div className={`h-[38px] px-3 border-t border-[#e0e0e0] flex items-center shrink-0 ${collapsed ? 'justify-center' : ''}`}>

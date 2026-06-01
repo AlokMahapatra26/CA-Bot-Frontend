@@ -9,6 +9,9 @@ import ClientNameCell from './ClientNameCell';
 import DeleteButton from './DeleteButton';
 import AccountApprovalButton from './AccountApprovalButton';
 import { importClients, updateClientProfile, uploadClientDoc, createClientProfile } from '../actions';
+import { createSupabaseBrowser } from '@/lib/supabase-browser';
+import { useAuth } from '@/app/components/AuthProvider';
+
 
 interface ClientsDashboardProps {
   clientsData: any[];
@@ -62,9 +65,44 @@ const renderBotStatus = (botStatus: string | null) => {
 
 export default function ClientsDashboard({ clientsData }: ClientsDashboardProps) {
   const router = useRouter();
+  const { profile } = useAuth();
+  const supabase = createSupabaseBrowser();
+  const [staff, setStaff] = useState<any[]>([]);
   const [isPending, startTransition] = useTransition();
   const [query, setQuery] = useState('');
   const [activeMsgClient, setActiveMsgClient] = useState<{ id: string; name: string; jid: string } | null>(null);
+
+  useEffect(() => {
+    async function fetchStaff() {
+      const { data } = await supabase
+        .from('profiles')
+        .select('id, email, full_name, role')
+        .order('full_name', { ascending: true });
+      if (data) {
+        setStaff(data);
+      }
+    }
+    if (profile) {
+      fetchStaff();
+    }
+  }, [profile, supabase]);
+
+  const handleAssignClient = async (clientId: string, staffId: string | null) => {
+    try {
+      const { error } = await supabase
+        .from('clients')
+        .update({ assigned_to: staffId || null })
+        .eq('id', clientId);
+      if (error) {
+        alert(`Failed to assign staff: ${error.message}`);
+      } else {
+        router.refresh();
+      }
+    } catch (err: any) {
+      alert(`Error assigning staff: ${err.message}`);
+    }
+  };
+
   const [customMsgText, setCustomMsgText] = useState('');
   const [sendingMsg, setSendingMsg] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
@@ -606,6 +644,7 @@ export default function ClientsDashboard({ clientsData }: ClientsDashboardProps)
               <th className="px-3 py-2 border-r border-[#e0e0e0] w-[120px]">Services</th>
               <th className="px-3 py-2 border-r border-[#e0e0e0] w-[90px]">Reg. Stage</th>
               <th className="px-3 py-2 border-r border-[#e0e0e0] w-[220px]">Account Status</th>
+              <th className="px-3 py-2 border-r border-[#e0e0e0] w-[140px]">Assigned Staff</th>
               <th className="px-3 py-2 border-r border-[#e0e0e0] w-[110px] text-right">Joined</th>
               <th className="px-3 py-2 w-[140px] text-center">Actions</th>
             </tr>
@@ -613,7 +652,7 @@ export default function ClientsDashboard({ clientsData }: ClientsDashboardProps)
           <tbody>
             {filtered.length === 0 && (
               <tr>
-                <td colSpan={11} className="px-3 py-6 text-center text-[12px] text-[#aaa]">
+                <td colSpan={12} className="px-3 py-6 text-center text-[12px] text-[#aaa]">
                   {query ? `No profiles matching "${query}"` : 'No client profiles found.'}
                 </td>
               </tr>
@@ -716,6 +755,30 @@ export default function ClientsDashboard({ clientsData }: ClientsDashboardProps)
                       currentStatus={client.account_status || 'PENDING'}
                     />
                   </td>
+                  <td className="px-3 py-2 border-r border-[#eee]">
+                    {profile?.role === 'admin' || profile?.role === 'hod' ? (
+                      <select
+                        value={client.assigned_to || ''}
+                        disabled={isPending}
+                        onChange={(e) => handleAssignClient(client.id, e.target.value || null)}
+                        className="px-1.5 py-0.5 text-[11px] bg-white border border-[#ddd] rounded-md focus:outline-none focus:border-[#999] cursor-pointer font-medium text-slate-700 w-full truncate"
+                      >
+                        <option value="">Unassigned</option>
+                        {staff.map((s) => (
+                          <option key={s.id} value={s.id}>
+                            {s.full_name || s.email.split('@')[0]} ({s.role})
+                          </option>
+                        ))}
+                      </select>
+                    ) : (
+                      <span className="text-[11px] font-medium text-slate-700">
+                        {(() => {
+                          const assigned = staff.find((s) => s.id === client.assigned_to);
+                          return assigned ? (assigned.full_name || assigned.email.split('@')[0]) : 'Unassigned';
+                        })()}
+                      </span>
+                    )}
+                  </td>
                   <td className="px-3 py-2 border-r border-[#eee] text-right text-[10px] text-[#999] whitespace-nowrap">
                     {client.created_at ? formatDistanceToNow(new Date(client.created_at), { addSuffix: true }) : '—'}
                   </td>
@@ -758,7 +821,9 @@ export default function ClientsDashboard({ clientsData }: ClientsDashboardProps)
                       >
                         Message
                       </button>
-                      <DeleteButton clientId={client.id} />
+                      {profile?.role === 'admin' && (
+                        <DeleteButton clientId={client.id} />
+                      )}
                     </div>
                   </td>
                 </tr>

@@ -730,3 +730,57 @@ export async function deleteAllClients() {
   }
 }
 
+export async function inviteTeamMember({
+  email,
+  role,
+  fullName,
+}: {
+  email: string;
+  role: string;
+  fullName: string;
+}) {
+  try {
+    const { createSupabaseAdmin } = await import('@/lib/supabase-server');
+    const adminClient = await createSupabaseAdmin();
+
+    const { error } = await adminClient.auth.admin.inviteUserByEmail(email, {
+      data: {
+        full_name: fullName,
+        role: role,
+      },
+      redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}/login`,
+    });
+
+    if (error) throw new Error(error.message);
+
+    return { success: true };
+  } catch (error: any) {
+    console.error('Invite Team Member Action Error:', error);
+    return { success: false, error: memberInviteErrorMessage(error) };
+  }
+}
+
+export async function deleteTeamMember(userId: string) {
+  try {
+    const { createSupabaseAdmin } = await import('@/lib/supabase-server');
+    const adminClient = await createSupabaseAdmin();
+
+    const { error } = await adminClient.auth.admin.deleteUser(userId);
+
+    if (error) throw new Error(error.message);
+
+    return { success: true };
+  } catch (error: any) {
+    console.error('Delete Team Member Action Error:', error);
+    return { success: false, error: error.message };
+  }
+}
+
+function memberInviteErrorMessage(error: any): string {
+  if (error.message?.includes('already registered')) {
+    return 'This email address is already registered as a team member.';
+  }
+  return error.message || 'Failed to send invite.';
+}
+
+

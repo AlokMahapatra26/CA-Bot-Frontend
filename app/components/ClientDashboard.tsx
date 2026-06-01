@@ -9,6 +9,7 @@ import FilingStatusSelect from './FilingStatusSelect';
 import DownloadDropdown from './DownloadDropdown';
 import ClientNameCell from './ClientNameCell';
 import DocPreviewModal from './DocPreviewModal';
+import { useAuth } from '@/app/components/AuthProvider';
 
 interface ClientDashboardProps {
   clientsData: any[];
@@ -157,6 +158,7 @@ const renderFilingDocs = (
 
 export default function ClientDashboard({ clientsData }: ClientDashboardProps) {
   const router = useRouter();
+  const { profile } = useAuth();
   const [isPending, startTransition] = useTransition();
   const [query, setQuery] = useState('');
   const [activeMsgClient, setActiveMsgClient] = useState<{ id: string; name: string; jid: string } | null>(null);
@@ -320,24 +322,28 @@ export default function ClientDashboard({ clientsData }: ClientDashboardProps) {
           <span className="text-[11px] text-[#999]">{filtered.length} records</span>
         </div>
         <div className="flex items-center gap-2">
-          <button
-            onClick={() => setShowBroadcastModal(true)}
-            className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-semibold text-white bg-indigo-600 hover:bg-indigo-700 border border-indigo-700 hover:border-indigo-800 rounded-lg hover:shadow-sm active:scale-[0.98] transition-all duration-150 cursor-pointer"
-          >
-            <Megaphone className="w-3.5 h-3.5 text-indigo-100" />
-            <span>Broadcast Message</span>
-          </button>
-          <button
-            onClick={() => {
-              fetchReminderStatus();
-              setShowReminderModal(true);
-            }}
-            className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-semibold text-[#444] bg-white border border-[#ddd] rounded-lg hover:border-[#aaa] transition-colors relative cursor-pointer"
-          >
-            <Bell className="w-3.5 h-3.5 text-slate-500" />
-            <span>Reminder Settings</span>
-            <span className={`w-1.5 h-1.5 rounded-full ${reminderEnabled ? 'bg-emerald-500 animate-pulse' : 'bg-slate-300'}`} />
-          </button>
+          {(profile?.role === 'admin' || profile?.role === 'hod') && (
+            <>
+              <button
+                onClick={() => setShowBroadcastModal(true)}
+                className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-semibold text-white bg-indigo-600 hover:bg-indigo-700 border border-indigo-700 hover:border-indigo-800 rounded-lg hover:shadow-sm active:scale-[0.98] transition-all duration-150 cursor-pointer"
+              >
+                <Megaphone className="w-3.5 h-3.5 text-indigo-100" />
+                <span>Broadcast Message</span>
+              </button>
+              <button
+                onClick={() => {
+                  fetchReminderStatus();
+                  setShowReminderModal(true);
+                }}
+                className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-semibold text-[#444] bg-white border border-[#ddd] rounded-lg hover:border-[#aaa] transition-colors relative cursor-pointer"
+              >
+                <Bell className="w-3.5 h-3.5 text-slate-500" />
+                <span>Reminder Settings</span>
+                <span className={`w-1.5 h-1.5 rounded-full ${reminderEnabled ? 'bg-emerald-500 animate-pulse' : 'bg-slate-300'}`} />
+              </button>
+            </>
+          )}
           <button
             onClick={() => setShowDecisionTree(true)}
             className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-semibold text-[#555] bg-white border border-[#ddd] rounded-lg hover:border-[#aaa] transition-colors cursor-pointer"
@@ -483,7 +489,9 @@ export default function ClientDashboard({ clientsData }: ClientDashboardProps) {
                       >
                         Message
                       </button>
-                      <DeleteButton filingId={f?.id} clientId={client.id} />
+                      {profile?.role === 'admin' && (
+                        <DeleteButton filingId={f?.id} clientId={client.id} />
+                      )}
                     </div>
                   </td>
                   <td className="px-3 py-2 text-right text-[10px] text-[#999] whitespace-nowrap">

@@ -1,9 +1,10 @@
-import { supabase } from '@/lib/supabase';
+import { createSupabaseServer } from '@/lib/supabase-server';
 import ClientsDashboard from '../components/ClientsDashboard';
 
 export const revalidate = 0;
 
 export default async function ClientsPage() {
+  const supabase = await createSupabaseServer();
   const { data: clientsData, error } = await supabase
     .from('clients')
     .select('*, itr_filings(id)')
@@ -20,3 +21,4 @@ export default async function ClientsPage() {
 
   return <ClientsDashboard clientsData={clientsData || []} />;
 }
+

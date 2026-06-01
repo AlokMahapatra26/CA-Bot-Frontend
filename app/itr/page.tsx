@@ -1,11 +1,13 @@
-import { supabase } from '@/lib/supabase';
+import { createSupabaseServer } from '@/lib/supabase-server';
 import ClientDashboard from '@/app/components/ClientDashboard';
 
 export const revalidate = 0;
 
 export default async function DashboardPage() {
+  const supabase = await createSupabaseServer();
   const { data: clientsData, error } = await supabase
     .from('clients')
+
     .select(`
       *,
       itr_filings (
