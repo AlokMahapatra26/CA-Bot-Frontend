@@ -3,14 +3,17 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useState, useEffect } from 'react';
-import { FileText, Wifi, PanelLeftClose, PanelLeft, Users, Landmark, Key, Keyboard, History, LogOut, Users2 } from 'lucide-react';
+import { FileText, Wifi, PanelLeftClose, PanelLeft, Users, Landmark, Key, Keyboard, History, LogOut, Users2, MessageSquare, LayoutDashboard } from 'lucide-react';
 import { siteData } from '@/app/site-data';
 import { useAuth } from '@/app/components/AuthProvider';
+import { useFeatureToggles } from '@/app/components/FeatureToggleContext';
+
 
 export default function Sidebar() {
   const pathname = usePathname();
   const { profile, signOut } = useAuth();
   const [collapsed, setCollapsed] = useState(false);
+  const [companyName, setCompanyName] = useState<string>(siteData.firmName);
   const [status, setStatus] = useState<'connected' | 'connecting' | 'disconnected'>('disconnected');
   const [botNumber, setBotNumber] = useState<string | null>(null);
   const [showShortcuts, setShowShortcuts] = useState(false);
@@ -19,34 +22,60 @@ export default function Sidebar() {
   const [loadingChangelog, setLoadingChangelog] = useState(false);
   const [activeChangelogTab, setActiveChangelogTab] = useState<'frontend' | 'backend'>('frontend');
 
+  // Fetch company name
+  useEffect(() => {
+    async function fetchCompanyName() {
+      if (profile?.company_id) {
+        try {
+          const { getCompanyName } = await import('@/app/actions');
+          const result = await getCompanyName(profile.company_id);
+          if (result.success && result.name) {
+            setCompanyName(result.name);
+          }
+        } catch {}
+      }
+    }
+    fetchCompanyName();
+  }, [profile?.company_id]);
+
+  const { features, isMounted } = useFeatureToggles();
+
   // Dynamic navItems based on role & department
   const navItems = [];
   const isAdmin = profile?.role === 'admin';
   const isHOD = profile?.role === 'hod';
   const userDept = profile?.department || 'ALL';
 
-  if (isAdmin || isHOD) {
+  // Always show Dashboard
+  navItems.push({ href: '/', label: 'Dashboard', icon: LayoutDashboard });
+
+  if ((isAdmin || isHOD) && (!isMounted || features.bot)) {
     navItems.push({ href: '/bot', label: 'WhatsApp Bot', icon: Wifi });
   }
   
-  navItems.push({ href: '/clients', label: 'Client Profiles', icon: Users });
+  if (!isMounted || features.chat) {
+    navItems.push({ href: '/chat', label: 'Internal Chat', icon: MessageSquare });
+  }
+  if (!isMounted || features.clients) {
+    navItems.push({ href: '/clients', label: 'Client Profiles', icon: Users });
+  }
   
   // Show ITR Filing if admin, ITR department, or ALL department
-  if (isAdmin || userDept === 'ITR' || userDept === 'ALL') {
+  if ((isAdmin || userDept === 'ITR' || userDept === 'ALL') && (!isMounted || features.itr)) {
     navItems.push({ href: '/itr', label: 'ITR Filing', icon: FileText });
   }
   
   // Show GST Filing if admin, GST department, or ALL department
-  if (isAdmin || userDept === 'GST' || userDept === 'ALL') {
+  if ((isAdmin || userDept === 'GST' || userDept === 'ALL') && (!isMounted || features.gst)) {
     navItems.push({ href: '/gst', label: 'GST Filing', icon: Landmark });
   }
   
   // Show DSC Management if admin, DSC department, or ALL department
-  if (isAdmin || userDept === 'DSC' || userDept === 'ALL') {
+  if ((isAdmin || userDept === 'DSC' || userDept === 'ALL') && (!isMounted || features.dsc)) {
     navItems.push({ href: '/dsc', label: 'DSC Management', icon: Key });
   }
   
-  if (isAdmin) {
+  if (isAdmin && (!isMounted || features.team)) {
     navItems.push({ href: '/team', label: 'Team Members', icon: Users2 });
   }
 
@@ -152,8 +181,8 @@ export default function Sidebar() {
       {/* Toggle */}
       <div className={`flex items-center ${collapsed ? 'justify-center' : 'justify-between'} px-3 py-2.5 border-b border-[#e0e0e0]`}>
         {!collapsed && (
-          <span className="text-[12px] font-bold text-[#111] truncate pr-2" title={siteData.firmName}>
-            {siteData.firmName}
+          <span className="text-[12px] font-bold text-[#111] truncate pr-2" title={companyName}>
+            {companyName}
           </span>
         )}
         <button onClick={() => setCollapsed(!collapsed)} className="p-1 rounded-md hover:bg-[#eee] text-[#999] transition-colors shrink-0">

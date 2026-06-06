@@ -31,6 +31,7 @@ export default function TeamPage() {
   const [createSuccess, setCreateSuccess] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<'ALL' | 'ITR' | 'GST' | 'DSC' | 'MANAGEMENT'>('ALL');
 
   // Restrict access if not an admin
   const isAdmin = profile?.role === 'admin';
@@ -39,7 +40,7 @@ export default function TeamPage() {
     try {
       setLoading(true);
       const { getAllProfiles } = await import('@/app/actions');
-      const result = await getAllProfiles();
+      const result = await getAllProfiles(profile?.company_id || undefined);
       if (result.success && result.profiles) {
         setTeam(result.profiles as TeamProfile[]);
       }
@@ -88,6 +89,7 @@ export default function TeamPage() {
         role: createRole,
         department: finalDept,
         fullName: createName.trim(),
+        companyId: profile?.company_id || '',
       });
 
       if (!result.success) {
@@ -170,6 +172,12 @@ export default function TeamPage() {
     return colors[role] || colors.employee;
   };
 
+  const filteredTeam = team.filter(member => {
+    if (activeTab === 'ALL') return true;
+    if (activeTab === 'MANAGEMENT') return member.role === 'admin' || member.role === 'hod' || member.department === 'ALL';
+    return member.department === activeTab;
+  });
+
   return (
     <div className="flex-1 bg-white flex flex-col overflow-hidden p-6">
       {/* Header */}
@@ -200,16 +208,46 @@ export default function TeamPage() {
         </div>
       )}
 
+      {/* Tabs */}
+      <div className="flex border-b border-[#e5e5e5] mb-4 overflow-x-auto hide-scrollbar">
+        {[
+          { id: 'ALL', label: 'All Staff' },
+          { id: 'MANAGEMENT', label: 'Management / Admins' },
+          { id: 'ITR', label: 'ITR Dept' },
+          { id: 'GST', label: 'GST Dept' },
+          { id: 'DSC', label: 'DSC Dept' },
+        ].map(tab => (
+          <button
+            key={tab.id}
+            onClick={() => setActiveTab(tab.id as any)}
+            className={`px-4 py-2 text-[12px] font-semibold tracking-wide transition-colors whitespace-nowrap cursor-pointer border-b-2 ${
+              activeTab === tab.id
+                ? 'border-blue-600 text-blue-700'
+                : 'border-transparent text-slate-500 hover:text-slate-800 hover:border-slate-300'
+            }`}
+          >
+            {tab.label}
+            <span className="ml-2 px-1.5 py-0.5 rounded-full bg-slate-100 text-[10px] text-slate-500 font-bold">
+              {tab.id === 'ALL' 
+                ? team.length 
+                : tab.id === 'MANAGEMENT'
+                  ? team.filter(m => m.role === 'admin' || m.role === 'hod' || m.department === 'ALL').length
+                  : team.filter(m => m.department === tab.id).length}
+            </span>
+          </button>
+        ))}
+      </div>
+
       {/* Main List */}
-      <div className="flex-1 overflow-auto max-w-4xl border border-[#e5e5e5] rounded-xl bg-white shadow-sm">
+      <div className="flex-1 overflow-auto max-w-5xl border border-[#e5e5e5] rounded-xl bg-white shadow-sm">
         {loading ? (
           <div className="flex flex-col items-center justify-center py-20 gap-2">
             <RefreshCw className="w-5 h-5 text-slate-400 animate-spin" />
             <span className="text-[11px] text-slate-500">Loading team directory...</span>
           </div>
-        ) : team.length === 0 ? (
+        ) : filteredTeam.length === 0 ? (
           <div className="text-center py-20 text-[12px] text-slate-400">
-            No team members registered yet. Click Create Member to add someone.
+            No members found in this category.
           </div>
         ) : (
           <table className="w-full text-[12px] text-left border-collapse">
@@ -222,7 +260,7 @@ export default function TeamPage() {
               </tr>
             </thead>
             <tbody>
-              {team.map(member => (
+              {filteredTeam.map(member => (
                 <tr key={member.id} className="border-b border-[#f0f0f0] hover:bg-slate-50/50 transition-colors">
                   <td className="px-4 py-3">
                     <div className="font-semibold text-slate-800">
@@ -245,11 +283,12 @@ export default function TeamPage() {
                         <select
                           value={member.role}
                           disabled={actionLoading === member.id}
-                          onChange={(e) => handleUpdateRoleAndDepartment(
-                            member.id, 
-                            e.target.value as any, 
-                            member.department
-                          )}
+                          onChange={(e) => {
+                            const newRole = e.target.value as any;
+                            if (window.confirm(`Are you sure you want to change this member's role to ${newRole.toUpperCase()}?`)) {
+                              handleUpdateRoleAndDepartment(member.id, newRole, member.department);
+                            }
+                          }}
                           className="px-2 py-1 text-[11px] bg-white border border-[#ddd] rounded-md focus:outline-none focus:border-[#999] transition-colors cursor-pointer font-medium text-slate-700"
                         >
                           <option value="admin">Admin</option>
@@ -262,11 +301,12 @@ export default function TeamPage() {
                           <select
                             value={member.department || 'ITR'}
                             disabled={actionLoading === member.id}
-                            onChange={(e) => handleUpdateRoleAndDepartment(
-                              member.id, 
-                              member.role, 
-                              e.target.value as any
-                            )}
+                            onChange={(e) => {
+                              const newDept = e.target.value as any;
+                              if (window.confirm(`Are you sure you want to reassign this member to the ${newDept} department?`)) {
+                                handleUpdateRoleAndDepartment(member.id, member.role, newDept);
+                              }
+                            }}
                             className="px-2 py-1 text-[11px] bg-white border border-[#ddd] rounded-md focus:outline-none focus:border-[#999] transition-colors cursor-pointer font-medium text-slate-700"
                           >
                             <option value="ITR">ITR</option>

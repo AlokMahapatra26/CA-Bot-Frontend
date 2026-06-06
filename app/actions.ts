@@ -2,6 +2,7 @@
 
 import { createClient } from '@supabase/supabase-js';
 import { revalidatePath } from 'next/cache';
+import { createSupabaseServer } from '@/lib/supabase-server';
 
 // Initialize a server-only Supabase client.
 // We try to use the private service role key if available, otherwise fallback to the public anon key.
@@ -736,18 +737,17 @@ export async function createTeamMember({
   role,
   department,
   fullName,
+  companyId,
 }: {
   email: string;
   password: string;
   role: string;
   department: string;
   fullName: string;
+  companyId: string;
 }) {
   try {
-    const { createSupabaseAdmin } = await import('@/lib/supabase-server');
-    const adminClient = await createSupabaseAdmin();
-
-    const { data, error } = await adminClient.auth.admin.createUser({
+    const { data, error } = await serverSupabase.auth.admin.createUser({
       email,
       password,
       email_confirm: true,
@@ -755,20 +755,22 @@ export async function createTeamMember({
         full_name: fullName,
         role: role,
         department: department,
+        company_id: companyId,
       },
       app_metadata: {
         role: role,
         department: department,
+        company_id: companyId,
       },
     });
 
     if (error) throw new Error(error.message);
 
-    // Also update the profiles table directly to ensure role and department are set
+    // Also update the profiles table directly to ensure role, department, and company are set
     if (data?.user) {
       await serverSupabase
         .from('profiles')
-        .update({ role, department, full_name: fullName })
+        .update({ role, department, full_name: fullName, company_id: companyId })
         .eq('id', data.user.id);
     }
 
@@ -781,10 +783,7 @@ export async function createTeamMember({
 
 export async function deleteTeamMember(userId: string) {
   try {
-    const { createSupabaseAdmin } = await import('@/lib/supabase-server');
-    const adminClient = await createSupabaseAdmin();
-
-    const { error } = await adminClient.auth.admin.deleteUser(userId);
+    const { error } = await serverSupabase.auth.admin.deleteUser(userId);
 
     if (error) throw new Error(error.message);
 
@@ -803,19 +802,86 @@ function memberCreateErrorMessage(error: any): string {
 }
 
 /**
- * Fetch the current user's profile using the service role key (bypasses RLS).
- * This is called from the AuthProvider to avoid RLS recursion issues.
+ * Create a new company and set the user as its admin.
+ * Called during onboarding after sign-up.
  */
+export async function createCompany(userId: string, companyName: string) {
+  try {
+    // 1. Create the company
+    const { data: company, error: companyError } = await serverSupabase
+      .from('companies')
+      .insert({ name: companyName.trim(), created_by: userId })
+      .select('id')
+      .single();
+
+    if (companyError) throw new Error(companyError.message);
+
+    const companyId = company.id;
+
+    // 2. Update the user's profile to admin + ALL department + company_id
+    const { error: profileError } = await serverSupabase
+      .from('profiles')
+      .update({
+        role: 'admin',
+        department: 'ALL',
+        company_id: companyId,
+      })
+      .eq('id', userId);
+
+    if (profileError) throw new Error(profileError.message);
+
+    // 3. Sync to auth.users app_metadata for JWT claims
+    await serverSupabase.auth.admin.updateUserById(userId, {
+      app_metadata: {
+        role: 'admin',
+        department: 'ALL',
+        company_id: companyId,
+      },
+    });
+
+    return { success: true, companyId };
+  } catch (error: any) {
+    console.error('Create Company Error:', error);
+    return { success: false, error: error.message };
+  }
+}
+
 export async function getMyProfile(userId: string) {
   try {
-    const { data, error } = await serverSupabase
+    let { data, error } = await serverSupabase
       .from('profiles')
       .select('*')
       .eq('id', userId)
-      .single();
+      .maybeSingle();
 
     if (error) {
       return { success: false, error: error.message, profile: null };
+    }
+
+    // Auto-healing: If user exists in Auth but has no profile row yet
+    if (!data) {
+      const { data: { user }, error: authError } = await serverSupabase.auth.admin.getUserById(userId);
+      
+      if (authError || !user) {
+        return { success: false, error: 'Auth user not found', profile: null };
+      }
+
+      const { data: newProfile, error: insertError } = await serverSupabase
+        .from('profiles')
+        .insert({
+          id: userId,
+          email: user.email || '',
+          full_name: user.user_metadata?.full_name || '',
+          role: 'employee',
+          department: 'ALL',
+        })
+        .select('*')
+        .single();
+
+      if (insertError) {
+        return { success: false, error: insertError.message, profile: null };
+      }
+      data = newProfile;
     }
 
     return { success: true, profile: data };
@@ -825,14 +891,20 @@ export async function getMyProfile(userId: string) {
 }
 
 /**
- * Fetch all team profiles (bypasses RLS). Admin-only usage.
+ * Fetch all team profiles for a specific company (bypasses RLS). Admin-only usage.
  */
-export async function getAllProfiles() {
+export async function getAllProfiles(companyId?: string) {
   try {
-    const { data, error } = await serverSupabase
+    let query = serverSupabase
       .from('profiles')
       .select('*')
       .order('created_at', { ascending: false });
+
+    if (companyId) {
+      query = query.eq('company_id', companyId);
+    }
+
+    const { data, error } = await query;
 
     if (error) {
       return { success: false, error: error.message, profiles: [] };
@@ -858,9 +930,7 @@ export async function updateTeamMemberRoleAndDepartment(userId: string, newRole:
     if (error) throw new Error(error.message);
 
     // Also sync to auth.users app_metadata for JWT claims
-    const { createSupabaseAdmin } = await import('@/lib/supabase-server');
-    const adminClient = await createSupabaseAdmin();
-    await adminClient.auth.admin.updateUserById(userId, {
+    await serverSupabase.auth.admin.updateUserById(userId, {
       app_metadata: { role: newRole, department: newDepartment },
       user_metadata: { role: newRole, department: newDepartment }
     });
@@ -869,5 +939,110 @@ export async function updateTeamMemberRoleAndDepartment(userId: string, newRole:
   } catch (error: any) {
     console.error('Update Role/Department Error:', error);
     return { success: false, error: error.message };
+  }
+}
+
+/**
+ * Fetch a company name by ID (bypasses RLS).
+ */
+export async function getCompanyName(companyId: string) {
+  try {
+    const { data, error } = await serverSupabase
+      .from('companies')
+      .select('name')
+      .eq('id', companyId)
+      .single();
+
+    if (error) {
+      return { success: false, name: null };
+    }
+
+    return { success: true, name: data.name };
+  } catch {
+    return { success: false, name: null };
+  }
+}
+
+// ---------------------------------------------------------------------------
+// CHAT SYSTEM ACTIONS
+// ---------------------------------------------------------------------------
+
+export async function getMessages(channelName: string) {
+  try {
+    const supabase = await createSupabaseServer();
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    if (!user) throw new Error('Unauthorized');
+
+    // Fetch messages with sender profile info. RLS will ensure we only get messages from our company and allowed channels.
+    const { data, error } = await supabase
+      .from('messages')
+      .select(`
+        id,
+        content,
+        channel_name,
+        created_at,
+        sender:profiles (
+          id,
+          full_name,
+          email,
+          role,
+          department
+        )
+      `)
+      .eq('channel_name', channelName)
+      .order('created_at', { ascending: true })
+      .limit(100);
+
+    if (error) throw new Error(error.message);
+
+    return { success: true, messages: data };
+  } catch (error: any) {
+    return { success: false, error: error.message };
+  }
+}
+
+export async function sendMessage(channelName: string, content: string, companyId: string) {
+  try {
+    const supabase = await createSupabaseServer();
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    if (!user) throw new Error('Unauthorized');
+
+    // RLS will reject this if the user doesn't have access to the channel or if companyId mismatches
+    const { data, error } = await supabase
+      .from('messages')
+      .insert({
+        company_id: companyId,
+        sender_id: user.id,
+        channel_name: channelName,
+        content: content.trim()
+      })
+      .select()
+      .single();
+
+    if (error) throw new Error(error.message);
+
+    return { success: true, message: data };
+  } catch (error: any) {
+    return { success: false, error: error.message };
+  }
+}
+
+export async function assignClientProfile(clientId: string, staffId: string | null) {
+  try {
+    const supabase = await createSupabaseServer();
+    const { error } = await supabase
+      .from('clients')
+      .update({ assigned_to: staffId || null })
+      .eq('id', clientId);
+
+    if (error) throw new Error(error.message);
+
+    revalidatePath('/clients');
+    return { success: true };
+  } catch (err: any) {
+    console.error('AssignClientProfile Error:', err);
+    return { success: false, error: err.message };
   }
 }

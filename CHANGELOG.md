@@ -2,6 +2,30 @@
 
 All notable changes to the CA-bOt Frontend client dashboard will be documented in this file.
 
+## [1.20.0] - 2026-06-06
+### Added
+- **Global Feature Toggle Console**:
+  - Implemented a hidden system administration console triggered by pressing `Ctrl + X` 5 times in quick succession (within a 3-second window).
+  - Restricted the keyboard shortcut listener to run only for users authenticated with the **Admin** role.
+  - Designed a premium, light-themed, serious modal dialogue styled consistently with the application's design system (matching the Keyboard Shortcuts modal).
+  - Features individual toggles for seven modules: WhatsApp Bot, Internal Chat, Client Profiles, ITR Filing, GST Filing, DSC Management, and Team Members.
+  - Persists all module states on the client using `localStorage`.
+  - Added page-level route interception to completely block navigation and direct URL access to disabled modules, displaying a clean "Module Temporarily Disabled" notice.
+  - Dynamically hides disabled modules from the Sidebar and the Homepage command dashboard module grid.
+- **Side Panel Navigation Improvements**:
+  - Created a permanent **Dashboard** option at the top of the Sidebar navigation linking directly back to the root gateway (`/`).
+
+## [1.19.0] - 2026-06-06
+### Added
+- **Self-Service Multi-Tenant Onboarding**:
+  - Introduced `companies` table for full multi-tenant data isolation — each firm's clients, filings, and team members are completely separated.
+  - Added a **Sign Up** tab to the login page allowing new users to create accounts with email and password (no manual DB setup required).
+  - Built a beautiful **"Set Up Your Firm"** onboarding page (`/onboarding`) where new users enter their firm name and are automatically promoted to **Admin** with full access.
+  - All data (profiles, clients, itr_filings) is now scoped by `company_id` with JWT-based RLS policies ensuring zero cross-company data leakage.
+  - The Sidebar now dynamically displays the firm's name fetched from the database instead of a hardcoded value.
+  - Updated `createTeamMember` to automatically assign new members to the admin's company.
+  - AuthProvider redirects authenticated users without a company to `/onboarding` automatically.
+
 ## [1.18.0] - 2026-06-01
 ### Added
 - **High-Performance Department-Based Access Control (RBAC)**:

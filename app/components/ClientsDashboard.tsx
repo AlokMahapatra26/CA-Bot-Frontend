@@ -8,7 +8,7 @@ import { formatDistanceToNow } from 'date-fns';
 import ClientNameCell from './ClientNameCell';
 import DeleteButton from './DeleteButton';
 import AccountApprovalButton from './AccountApprovalButton';
-import { importClients, updateClientProfile, uploadClientDoc, createClientProfile } from '../actions';
+import { importClients, updateClientProfile, uploadClientDoc, createClientProfile, assignClientProfile } from '../actions';
 import { createSupabaseBrowser } from '@/lib/supabase-browser';
 import { useAuth } from '@/app/components/AuthProvider';
 
@@ -103,6 +103,19 @@ export default function ClientsDashboard({ clientsData }: ClientsDashboardProps)
         alert(`Failed to assign staff: ${error.message}`);
       } else {
         router.refresh();
+      }
+    } catch (err: any) {
+      alert(`Error assigning staff: ${err.message}`);
+    }
+  };
+
+  const handleAssignClientProfile = async (clientId: string, staffId: string | null) => {
+    try {
+      const res = await assignClientProfile(clientId, staffId);
+      if (res.success) {
+        router.refresh();
+      } else {
+        alert(`Failed to assign staff: ${res.error}`);
       }
     } catch (err: any) {
       alert(`Error assigning staff: ${err.message}`);

@@ -1,14 +1,23 @@
+'use client';
+
 import Link from 'next/link';
 import { Wifi, Users, FileText, Landmark, Key } from 'lucide-react';
+import { useFeatureToggles } from '@/app/components/FeatureToggleContext';
 
 export default function RootDashboardPage() {
-  const modules = [
-    { href: '/bot', label: 'WhatsApp Bot Client', desc: 'Real-time message streams, chat control, and live status metrics.', icon: Wifi },
-    { href: '/clients', label: 'Client Profiles', desc: 'Manage master accountant assignments, approvals, and KYC status.', icon: Users },
-    { href: '/itr', label: 'ITR Filing Dashboard', desc: 'High-density client filings tracking, filtering, and custom doc preview.', icon: FileText },
-    { href: '/gst', label: 'GST Filing (Inactive)', desc: 'Goods and Services Tax document flow and returns verification.', icon: Landmark, disabled: true },
-    { href: '/dsc', label: 'DSC Management (Inactive)', desc: 'Digital Signature Certificate keys tracking and logs.', icon: Key, disabled: true },
+  const { features, isMounted } = useFeatureToggles();
+
+  const allModules = [
+    { key: 'bot', href: '/bot', label: 'WhatsApp Bot Client', desc: 'Real-time message streams, chat control, and live status metrics.', icon: Wifi },
+    { key: 'clients', href: '/clients', label: 'Client Profiles', desc: 'Manage master accountant assignments, approvals, and KYC status.', icon: Users },
+    { key: 'itr', href: '/itr', label: 'ITR Filing Dashboard', desc: 'High-density client filings tracking, filtering, and custom doc preview.', icon: FileText },
+    { key: 'gst', href: '/gst', label: 'GST Filing (Inactive)', desc: 'Goods and Services Tax document flow and returns verification.', icon: Landmark, disabled: true },
+    { key: 'dsc', href: '/dsc', label: 'DSC Management (Inactive)', desc: 'Digital Signature Certificate keys tracking and logs.', icon: Key, disabled: true },
   ];
+
+  const modules = isMounted
+    ? allModules.filter((m) => features[m.key as keyof typeof features] !== false)
+    : allModules;
 
   return (
     <div className="flex-1 bg-white flex flex-col overflow-hidden p-6">

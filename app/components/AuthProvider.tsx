@@ -11,6 +11,7 @@ export interface UserProfile {
   full_name: string;
   role: 'admin' | 'hod' | 'employee';
   department: 'ITR' | 'GST' | 'DSC' | 'ALL';
+  company_id: string | null;
 }
 
 interface AuthContextType {
@@ -18,6 +19,7 @@ interface AuthContextType {
   profile: UserProfile | null;
   loading: boolean;
   signOut: () => Promise<void>;
+  refreshProfile: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType>({
@@ -25,6 +27,7 @@ const AuthContext = createContext<AuthContextType>({
   profile: null,
   loading: true,
   signOut: async () => {},
+  refreshProfile: async () => {},
 });
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
@@ -51,6 +54,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }
 
+  // Expose a way to re-fetch the profile (e.g., after onboarding)
+  const refreshProfile = async () => {
+    if (user?.id) {
+      const prof = await fetchProfile(user.id);
+      if (prof) setProfile(prof);
+    }
+  };
+
   useEffect(() => {
     let mounted = true;
 
@@ -67,13 +78,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     async function getSession() {
       try {
+        // 1. Check if a local session exists first
         const { data: { session }, error: sessionError } = await supabase.auth.getSession();
 
         if (sessionError || !session?.user) {
-          if (sessionError) {
-            console.warn('Session error:', sessionError.message);
-            try { await supabase.auth.signOut(); } catch {}
-          }
+          // No local session or invalid session format. Just clear state.
           if (mounted && !hasResolved.current) {
             hasResolved.current = true;
             setUser(null);
@@ -83,16 +92,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           return;
         }
 
-        // Session is valid
-        if (mounted) setUser(session.user);
+        // 2. Local session exists! Now verify the user still exists on the server
+        const { data: { user }, error: userError } = await supabase.auth.getUser();
+
+        if (userError || !user) {
+          // The server rejected the session (ghost session / user deleted)
+          console.warn('Ghost session detected or user deleted:', userError?.message);
+          try { await signOut(); } catch {}
+          return;
+        }
+
+        // 3. Session and User are both valid!
+        if (mounted) setUser(user);
 
         // Fetch profile via server action (bypasses RLS)
-        const prof = await fetchProfile(session.user.id);
+        const prof = await fetchProfile(user.id);
         if (prof) {
           if (mounted) setProfile(prof);
         } else {
-          console.warn('No profile found for user, signing out');
-          try { await supabase.auth.signOut(); } catch {}
+          // Profile missing and auto-healing failed — user is likely deleted from backend
+          console.warn('No profile found for user — forcing signout');
+          try { await signOut(); } catch {}
         }
       } catch (err) {
         console.error('Auth error:', err);
@@ -167,10 +187,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     window.location.href = '/login';
   };
 
-  // Never block the login page
+  // Public pages that don't require company_id
   const isLoginPage = pathname === '/login';
+  const isOnboardingPage = pathname === '/onboarding';
 
-  if (loading && !isLoginPage) {
+  // Redirect to onboarding if user is authenticated but has no company
+  useEffect(() => {
+    if (!loading && user && profile && !profile.company_id && !isOnboardingPage && !isLoginPage) {
+      router.push('/onboarding');
+    }
+  }, [loading, user, profile, isOnboardingPage, isLoginPage, router]);
+
+  if (loading && !isLoginPage && !isOnboardingPage) {
     return (
       <div className="h-screen w-screen flex flex-col items-center justify-center bg-white gap-2">
         <div className="w-5 h-5 border-2 border-t-[#2563eb] border-slate-200 rounded-full animate-spin" />
@@ -180,7 +208,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, profile, loading, signOut }}>
+    <AuthContext.Provider value={{ user, profile, loading, signOut, refreshProfile }}>
       {children}
     </AuthContext.Provider>
   );
