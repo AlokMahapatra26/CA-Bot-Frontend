@@ -3,9 +3,14 @@
 import Link from 'next/link';
 import { Wifi, Users, FileText, Landmark, Key } from 'lucide-react';
 import { useFeatureToggles } from '@/app/components/FeatureToggleContext';
+import { useAuth } from '@/app/components/AuthProvider';
 
 export default function RootDashboardPage() {
   const { features, isMounted } = useFeatureToggles();
+  const { profile } = useAuth();
+
+  const isAdmin = profile?.role === 'admin';
+  const isHOD = profile?.role === 'hod';
 
   const allModules = [
     { key: 'bot', href: '/bot', label: 'WhatsApp Bot Client', desc: 'Real-time message streams, chat control, and live status metrics.', icon: Wifi },
@@ -16,7 +21,12 @@ export default function RootDashboardPage() {
   ];
 
   const modules = isMounted
-    ? allModules.filter((m) => features[m.key as keyof typeof features] !== false)
+    ? allModules
+        .filter((m) => features[m.key as keyof typeof features] !== false)
+        .filter((m) => {
+          if (m.key === 'clients' && !isAdmin && !isHOD) return false;
+          return true;
+        })
     : allModules;
 
   return (

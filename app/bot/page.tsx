@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
-import { Wifi, WifiOff, Loader2, LogOut, CheckCircle2 } from 'lucide-react';
+import { Wifi, WifiOff, Loader2, LogOut, CheckCircle2, ShieldAlert } from 'lucide-react';
+import { useAuth } from '@/app/components/AuthProvider';
 
 type BotStatus = 'disconnected' | 'connecting' | 'connected';
 
@@ -13,6 +14,7 @@ interface StatusResponse {
 }
 
 export default function BotPage() {
+  const { profile } = useAuth();
   const [data, setData] = useState<StatusResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [loggingOut, setLoggingOut] = useState(false);
@@ -51,6 +53,22 @@ export default function BotPage() {
       setLoggingOut(false);
     }
   };
+
+  if (profile && profile.role !== 'admin') {
+    return (
+      <div className="flex-1 bg-white flex flex-col items-center justify-center p-6 text-center h-full">
+        <div className="max-w-md space-y-4">
+          <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center mx-auto text-slate-400">
+            <ShieldAlert className="w-6 h-6" />
+          </div>
+          <h2 className="text-[16px] font-bold text-slate-900 uppercase tracking-wider">Access Restricted</h2>
+          <p className="text-[12px] text-slate-500 max-w-xs mx-auto leading-relaxed">
+            The WhatsApp Bot Client module is restricted to system administrators only.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   const dot = !data ? 'bg-gray-300' : data.status === 'connected' ? 'bg-green-500' : data.status === 'connecting' ? 'bg-amber-400' : 'bg-gray-300';
 
