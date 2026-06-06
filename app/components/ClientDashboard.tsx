@@ -485,7 +485,7 @@ export default function ClientDashboard({ clientsData }: ClientDashboardProps) {
 
       {/* Table — full bleed */}
       <div className="flex-1 overflow-auto">
-        <table className="w-full min-w-[1400px] text-left border-collapse">
+        <table className="w-full min-w-[1580px] text-left border-collapse">
           <thead className="sticky top-0 z-10">
             <tr className="bg-[#f5f5f5] border-b border-[#e0e0e0] text-[11px] font-semibold text-[#666] uppercase tracking-wide">
               <th className="px-3 py-2 border-r border-[#e0e0e0] w-[170px]">Name</th>
@@ -493,6 +493,7 @@ export default function ClientDashboard({ clientsData }: ClientDashboardProps) {
               <th className="px-3 py-2 border-r border-[#e0e0e0] w-[70px]">FY</th>
               <th className="px-3 py-2 border-r border-[#e0e0e0] w-[140px]">Bot Status</th>
               <th className="px-3 py-2 border-r border-[#e0e0e0] w-[110px]">Income Source</th>
+              <th className="px-3 py-2 border-r border-[#e0e0e0] w-[180px]">Bank Details</th>
               <th className="px-3 py-2 border-r border-[#e0e0e0] w-[260px]">ITR Documents</th>
               <th className="px-3 py-2 border-r border-[#e0e0e0] w-[140px]">Filing Status</th>
               <th className="px-3 py-2 border-r border-[#e0e0e0] w-[145px]">Assigned To</th>
@@ -502,7 +503,7 @@ export default function ClientDashboard({ clientsData }: ClientDashboardProps) {
           </thead>
           <tbody>
             {filtered.length === 0 && (
-              <tr><td colSpan={10} className="px-3 py-6 text-center text-[12px] text-[#aaa]">
+              <tr><td colSpan={11} className="px-3 py-6 text-center text-[12px] text-[#aaa]">
                 {query ? `No results for "${query}"` : 'No clients yet.'}
               </td></tr>
             )}
@@ -520,6 +521,17 @@ export default function ClientDashboard({ clientsData }: ClientDashboardProps) {
                   <td className="px-3 py-2 border-r border-[#eee] font-mono text-[11px] text-[#555]">{f?.fy_year || '—'}</td>
                   <td className="px-3 py-2 border-r border-[#eee]">{f ? renderStatus(f.status) : <span className="text-[#ccc]">—</span>}</td>
                   <td className="px-3 py-2 border-r border-[#eee]">{f ? renderIncomeSource(f.income_source) : <span className="text-[#ccc]">—</span>}</td>
+                  <td className="px-3 py-2 border-r border-[#eee]">
+                    {f?.bank_name ? (
+                      <div className="text-[11px] leading-tight">
+                        <div className="font-semibold text-slate-800">{f.bank_name}</div>
+                        <div className="text-slate-600 font-mono">{f.bank_account_number}</div>
+                        <div className="text-[10px] text-slate-500 font-mono uppercase">{f.bank_ifsc}</div>
+                      </div>
+                    ) : (
+                      <span className="text-[#ccc]">—</span>
+                    )}
+                  </td>
                   <td className="px-3 py-2 border-r border-[#eee]">{f ? renderFilingDocs(f, name, f.id, client.whatsapp_jid || '', (previewData) => setActivePreviewDoc(previewData)) : <span className="text-[#ccc]">—</span>}</td>
                   <td className="px-3 py-2 border-r border-[#eee]">
                     {f ? (
