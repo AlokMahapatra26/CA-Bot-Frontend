@@ -10,6 +10,7 @@ import DownloadDropdown from './DownloadDropdown';
 import ClientNameCell from './ClientNameCell';
 import DocPreviewModal from './DocPreviewModal';
 import { useAuth } from '@/app/components/AuthProvider';
+import { createSupabaseBrowser } from '@/lib/supabase-browser';
 
 interface ClientDashboardProps {
   clientsData: any[];
@@ -159,6 +160,46 @@ const renderFilingDocs = (
 export default function ClientDashboard({ clientsData }: ClientDashboardProps) {
   const router = useRouter();
   const { profile } = useAuth();
+  const supabase = createSupabaseBrowser();
+  const [staff, setStaff] = useState<any[]>([]);
+
+  useEffect(() => {
+    async function fetchStaff() {
+      let q = supabase
+        .from('profiles')
+        .select('id, full_name, email, role, department')
+        .neq('role', 'admin'); // Don't assign to admins
+      
+      if (profile?.company_id) {
+        q = q.eq('company_id', profile.company_id);
+      }
+
+      const { data } = await q.order('full_name', { ascending: true });
+      if (data) {
+        setStaff(data);
+      }
+    }
+    if (profile) {
+      fetchStaff();
+    }
+  }, [profile, supabase]);
+
+  const handleAssignClient = async (clientId: string, staffId: string | null) => {
+    try {
+      const { error } = await supabase
+        .from('itr_filings')
+        .update({ assigned_to: staffId || null })
+        .eq('client_id', clientId);
+      if (error) {
+        alert(`Failed to assign staff: ${error.message}`);
+      } else {
+        router.refresh();
+      }
+    } catch (err: any) {
+      alert(`Error assigning staff: ${err.message}`);
+    }
+  };
+
   const [isPending, startTransition] = useTransition();
   const [query, setQuery] = useState('');
   const [activeMsgClient, setActiveMsgClient] = useState<{ id: string; name: string; jid: string } | null>(null);
@@ -422,13 +463,14 @@ export default function ClientDashboard({ clientsData }: ClientDashboardProps) {
               <th className="px-3 py-2 border-r border-[#e0e0e0] w-[110px]">Income Source</th>
               <th className="px-3 py-2 border-r border-[#e0e0e0] w-[260px]">ITR Documents</th>
               <th className="px-3 py-2 border-r border-[#e0e0e0] w-[140px]">Filing Status</th>
+              <th className="px-3 py-2 border-r border-[#e0e0e0] w-[145px]">Assigned To</th>
               <th className="px-3 py-2 border-r border-[#e0e0e0] w-[220px] text-center">Actions</th>
               <th className="px-3 py-2 w-[120px] text-right">Updated</th>
             </tr>
           </thead>
           <tbody>
             {filtered.length === 0 && (
-              <tr><td colSpan={9} className="px-3 py-6 text-center text-[12px] text-[#aaa]">
+              <tr><td colSpan={10} className="px-3 py-6 text-center text-[12px] text-[#aaa]">
                 {query ? `No results for "${query}"` : 'No clients yet.'}
               </td></tr>
             )}
@@ -459,6 +501,36 @@ export default function ClientDashboard({ clientsData }: ClientDashboardProps) {
                       />
                     ) : (
                       <span className="text-[#ccc]">—</span>
+                    )}
+                  </td>
+                  <td className="px-3 py-2 border-r border-[#eee]">
+                    {f ? (
+                      profile?.role === 'admin' || profile?.role === 'hod' ? (
+                        <select
+                          value={f.assigned_to || ''}
+                          disabled={isPending}
+                          onChange={(e) => handleAssignClient(client.id, e.target.value || null)}
+                          className="px-1.5 py-0.5 text-[11px] bg-white border border-[#ddd] rounded-md focus:outline-none focus:border-[#999] cursor-pointer font-medium text-slate-700 w-full truncate"
+                        >
+                          <option value="">Unassigned</option>
+                          {staff
+                            .filter((s) => s.department === 'ITR' || s.department === 'ALL')
+                            .map((s) => (
+                              <option key={s.id} value={s.id}>
+                                {s.full_name || s.email.split('@')[0]} ({s.role === 'hod' ? `HOD-${s.department}` : s.role})
+                              </option>
+                            ))}
+                        </select>
+                      ) : (
+                        <span className="text-[11px] font-medium text-slate-700">
+                          {(() => {
+                            const assigned = staff.find((s) => s.id === f.assigned_to);
+                            return assigned ? (assigned.full_name || assigned.email.split('@')[0]) : 'Unassigned';
+                          })()}
+                        </span>
+                      )
+                    ) : (
+                      <span className="text-[10px] text-slate-400 font-medium italic">No ITR Service</span>
                     )}
                   </td>
                   <td className="px-2 py-2 border-r border-[#eee] text-center">

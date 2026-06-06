@@ -5,9 +5,16 @@ export const revalidate = 0;
 
 export default async function DashboardPage() {
   const supabase = await createSupabaseServer();
+  const { data: { user } } = await supabase.auth.getUser();
+
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('role')
+    .eq('id', user?.id)
+    .single();
+
   const { data: clientsData, error } = await supabase
     .from('clients')
-
     .select(`
       *,
       itr_filings (
@@ -45,5 +52,13 @@ export default async function DashboardPage() {
     (client: any) => client.itr_filings && client.itr_filings.length > 0
   );
 
-  return <ClientDashboard clientsData={activeItrClients} />;
+  // Filter clients to show only assigned ones if the user is an employee
+  let displayClients = activeItrClients;
+  if (profile?.role === 'employee') {
+    displayClients = activeItrClients.filter(
+      (client: any) => client.itr_filings[0].assigned_to === user?.id
+    );
+  }
+
+  return <ClientDashboard clientsData={displayClients} />;
 }
