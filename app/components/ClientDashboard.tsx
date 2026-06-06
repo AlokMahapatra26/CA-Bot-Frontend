@@ -265,6 +265,7 @@ export default function ClientDashboard({ clientsData }: ClientDashboardProps) {
 
   const [filterFilingStatus, setFilterFilingStatus] = useState<string>('ALL');
   const [filterIncomeSource, setFilterIncomeSource] = useState<string>('ALL');
+  const [filterAssignedTo, setFilterAssignedTo] = useState<string>('ALL');
 
   const filtered = useMemo(() => {
     let result = clientsData;
@@ -294,15 +295,24 @@ export default function ClientDashboard({ clientsData }: ClientDashboardProps) {
       });
     }
 
-
+    // Assigned to filter
+    if (filterAssignedTo !== 'ALL') {
+      result = result.filter((c: any) => {
+        const f = c.itr_filings?.[0] || null;
+        if (filterAssignedTo === 'UNASSIGNED') {
+          return !f || !f.assigned_to;
+        }
+        return f?.assigned_to === filterAssignedTo;
+      });
+    }
 
     return result;
-  }, [clientsData, query, filterFilingStatus, filterIncomeSource]);
+  }, [clientsData, query, filterFilingStatus, filterIncomeSource, filterAssignedTo]);
 
   // Reset to first page when search query or any filter changes
   useMemo(() => {
     setCurrentPage(1);
-  }, [query, filterFilingStatus, filterIncomeSource]);
+  }, [query, filterFilingStatus, filterIncomeSource, filterAssignedTo]);
 
   const paginatedClients = useMemo(() => {
     const start = (currentPage - 1) * pageSize;
@@ -435,13 +445,35 @@ export default function ClientDashboard({ clientsData }: ClientDashboardProps) {
           </select>
         </div>
 
+        {/* Assigned To filter (only visible to Admin & HOD) */}
+        {(profile?.role === 'admin' || profile?.role === 'hod') && (
+          <div className="flex items-center gap-1.5">
+            <span className="text-[#888]">Assigned To:</span>
+            <select
+              value={filterAssignedTo}
+              onChange={e => setFilterAssignedTo(e.target.value)}
+              className="px-2 py-1 bg-white border border-[#ddd] rounded-md focus:outline-none focus:border-[#999] text-[11px] text-[#333] cursor-pointer font-medium"
+            >
+              <option value="ALL">All Staff</option>
+              <option value="UNASSIGNED">Unassigned</option>
+              {staff
+                .filter((s) => s.department === 'ITR' || s.department === 'ALL')
+                .map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.full_name || s.email.split('@')[0]}
+                  </option>
+                ))}
+            </select>
+          </div>
+        )}
 
         {/* Clear Filters Button (only shows if any filter is active) */}
-        {(filterFilingStatus !== 'ALL' || filterIncomeSource !== 'ALL' || query) && (
+        {(filterFilingStatus !== 'ALL' || filterIncomeSource !== 'ALL' || filterAssignedTo !== 'ALL' || query) && (
           <button
             onClick={() => {
               setFilterFilingStatus('ALL');
               setFilterIncomeSource('ALL');
+              setFilterAssignedTo('ALL');
               setQuery('');
             }}
             className="px-2 py-0.5 hover:bg-red-50 text-red-600 hover:text-red-700 font-semibold border border-dashed border-red-200 hover:border-red-300 rounded text-[10px] transition-all uppercase tracking-wider cursor-pointer"
