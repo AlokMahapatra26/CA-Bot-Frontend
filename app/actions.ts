@@ -567,7 +567,7 @@ export async function updateClientProfile(clientId: string, updates: {
             .from('itr_filings')
             .insert({
               client_id: clientId,
-              fy_year: '2025-2026',
+              fy_year: '2025-26',
               status: 'AWAITING_INCOME_SOURCE',
               filing_status: 'AWAITING_DOCS'
             });
@@ -676,7 +676,7 @@ export async function createClientProfile(client: {
         .from('itr_filings')
         .insert({
           client_id: inserted.id,
-          fy_year: '2025-2026',
+          fy_year: '2025-26',
           status: 'AWAITING_INCOME_SOURCE',
           filing_status: 'AWAITING_DOCS'
         });
