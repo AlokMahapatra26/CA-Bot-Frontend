@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useTransition, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { CheckCircle2, Clock, Download, Search, X, FileText, RefreshCw, Briefcase, Building2, TrendingUp, Home, GitFork, Megaphone, Bell, Sliders, FlaskConical, Sparkles } from 'lucide-react';
+import { CheckCircle2, Clock, Download, Search, X, FileText, RefreshCw, Briefcase, Building2, TrendingUp, Home, GitFork, Megaphone, Bell, Sliders, FlaskConical, Sparkles, Copy, Check } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import DeleteButton from './DeleteButton';
 import FilingStatusSelect from './FilingStatusSelect';
@@ -11,6 +11,35 @@ import ClientNameCell from './ClientNameCell';
 import DocPreviewModal from './DocPreviewModal';
 import { useAuth } from '@/app/components/AuthProvider';
 import { createSupabaseBrowser } from '@/lib/supabase-browser';
+
+function CopyButton({ text, title }: { text: string; title: string }) {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch (err) {
+      console.warn('Failed to copy text: ', err);
+    }
+  };
+
+  return (
+    <button
+      onClick={handleCopy}
+      className="p-0.5 hover:bg-slate-100 rounded text-slate-400 hover:text-slate-600 transition-colors cursor-pointer inline-flex items-center justify-center ml-1 shrink-0"
+      title={title}
+    >
+      {copied ? (
+        <Check className="w-2.5 h-2.5 text-green-600" />
+      ) : (
+        <Copy className="w-2.5 h-2.5" />
+      )}
+    </button>
+  );
+}
 
 interface ClientDashboardProps {
   clientsData: any[];
@@ -523,10 +552,25 @@ export default function ClientDashboard({ clientsData }: ClientDashboardProps) {
                   <td className="px-3 py-2 border-r border-[#eee]">{f ? renderIncomeSource(f.income_source) : <span className="text-[#ccc]">—</span>}</td>
                   <td className="px-3 py-2 border-r border-[#eee]">
                     {f?.bank_name ? (
-                      <div className="text-[11px] leading-tight">
-                        <div className="font-semibold text-slate-800">{f.bank_name}</div>
-                        <div className="text-slate-600 font-mono">{f.bank_account_number}</div>
-                        <div className="text-[10px] text-slate-500 font-mono uppercase">{f.bank_ifsc}</div>
+                      <div className="text-[11px] leading-tight space-y-0.5">
+                        <div className="group/bank flex items-center justify-between gap-1 min-h-[16px]">
+                          <span className="font-semibold text-slate-800 truncate">{f.bank_name}</span>
+                          <span className="opacity-0 group-hover/bank:opacity-100 transition-opacity">
+                            <CopyButton text={f.bank_name} title="Copy Bank Name" />
+                          </span>
+                        </div>
+                        <div className="group/acc flex items-center justify-between gap-1 min-h-[16px]">
+                          <span className="text-slate-600 font-mono">{f.bank_account_number}</span>
+                          <span className="opacity-0 group-hover/acc:opacity-100 transition-opacity">
+                            <CopyButton text={f.bank_account_number} title="Copy Account Number" />
+                          </span>
+                        </div>
+                        <div className="group/ifsc flex items-center justify-between gap-1 min-h-[16px]">
+                          <span className="text-[10px] text-slate-500 font-mono uppercase">{f.bank_ifsc}</span>
+                          <span className="opacity-0 group-hover/ifsc:opacity-100 transition-opacity">
+                            <CopyButton text={f.bank_ifsc} title="Copy IFSC Code" />
+                          </span>
+                        </div>
                       </div>
                     ) : (
                       <span className="text-[#ccc]">—</span>
