@@ -74,10 +74,16 @@ export default function ClientsDashboard({ clientsData }: ClientsDashboardProps)
 
   useEffect(() => {
     async function fetchStaff() {
-      const { data } = await supabase
+      let q = supabase
         .from('profiles')
-        .select('id, email, full_name, role')
-        .order('full_name', { ascending: true });
+        .select('id, email, full_name, role, department');
+      
+      // HODs only see and assign staff belonging to their department
+      if (profile?.role === 'hod' && profile.department && profile.department !== 'ALL') {
+        q = q.eq('department', profile.department);
+      }
+
+      const { data } = await q.order('full_name', { ascending: true });
       if (data) {
         setStaff(data);
       }
@@ -90,9 +96,9 @@ export default function ClientsDashboard({ clientsData }: ClientsDashboardProps)
   const handleAssignClient = async (clientId: string, staffId: string | null) => {
     try {
       const { error } = await supabase
-        .from('clients')
+        .from('itr_filings')
         .update({ assigned_to: staffId || null })
-        .eq('id', clientId);
+        .eq('client_id', clientId);
       if (error) {
         alert(`Failed to assign staff: ${error.message}`);
       } else {
@@ -644,7 +650,7 @@ export default function ClientsDashboard({ clientsData }: ClientsDashboardProps)
               <th className="px-3 py-2 border-r border-[#e0e0e0] w-[120px]">Services</th>
               <th className="px-3 py-2 border-r border-[#e0e0e0] w-[90px]">Reg. Stage</th>
               <th className="px-3 py-2 border-r border-[#e0e0e0] w-[220px]">Account Status</th>
-              <th className="px-3 py-2 border-r border-[#e0e0e0] w-[140px]">Assigned Staff</th>
+              <th className="px-3 py-2 border-r border-[#e0e0e0] w-[140px]">Assigned (ITR)</th>
               <th className="px-3 py-2 border-r border-[#e0e0e0] w-[110px] text-right">Joined</th>
               <th className="px-3 py-2 w-[140px] text-center">Actions</th>
             </tr>
@@ -756,27 +762,31 @@ export default function ClientsDashboard({ clientsData }: ClientsDashboardProps)
                     />
                   </td>
                   <td className="px-3 py-2 border-r border-[#eee]">
-                    {profile?.role === 'admin' || profile?.role === 'hod' ? (
-                      <select
-                        value={client.assigned_to || ''}
-                        disabled={isPending}
-                        onChange={(e) => handleAssignClient(client.id, e.target.value || null)}
-                        className="px-1.5 py-0.5 text-[11px] bg-white border border-[#ddd] rounded-md focus:outline-none focus:border-[#999] cursor-pointer font-medium text-slate-700 w-full truncate"
-                      >
-                        <option value="">Unassigned</option>
-                        {staff.map((s) => (
-                          <option key={s.id} value={s.id}>
-                            {s.full_name || s.email.split('@')[0]} ({s.role})
-                          </option>
-                        ))}
-                      </select>
+                    {client.itr_filings && client.itr_filings.length > 0 ? (
+                      profile?.role === 'admin' || profile?.role === 'hod' ? (
+                        <select
+                          value={client.itr_filings[0].assigned_to || ''}
+                          disabled={isPending}
+                          onChange={(e) => handleAssignClient(client.id, e.target.value || null)}
+                          className="px-1.5 py-0.5 text-[11px] bg-white border border-[#ddd] rounded-md focus:outline-none focus:border-[#999] cursor-pointer font-medium text-slate-700 w-full truncate"
+                        >
+                          <option value="">Unassigned</option>
+                          {staff.map((s) => (
+                            <option key={s.id} value={s.id}>
+                              {s.full_name || s.email.split('@')[0]} ({s.role === 'hod' ? `HOD-${s.department}` : s.role})
+                            </option>
+                          ))}
+                        </select>
+                      ) : (
+                        <span className="text-[11px] font-medium text-slate-700">
+                          {(() => {
+                            const assigned = staff.find((s) => s.id === client.itr_filings?.[0]?.assigned_to);
+                            return assigned ? (assigned.full_name || assigned.email.split('@')[0]) : 'Unassigned';
+                          })()}
+                        </span>
+                      )
                     ) : (
-                      <span className="text-[11px] font-medium text-slate-700">
-                        {(() => {
-                          const assigned = staff.find((s) => s.id === client.assigned_to);
-                          return assigned ? (assigned.full_name || assigned.email.split('@')[0]) : 'Unassigned';
-                        })()}
-                      </span>
+                      <span className="text-[10px] text-slate-400 font-medium italic">No ITR Service</span>
                     )}
                   </td>
                   <td className="px-3 py-2 border-r border-[#eee] text-right text-[10px] text-[#999] whitespace-nowrap">

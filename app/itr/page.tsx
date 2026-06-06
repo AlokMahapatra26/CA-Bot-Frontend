@@ -12,6 +12,7 @@ export default async function DashboardPage() {
       *,
       itr_filings (
         id,
+        assigned_to,
         fy_year,
         status,
         filing_status,

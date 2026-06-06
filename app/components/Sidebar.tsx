@@ -19,18 +19,34 @@ export default function Sidebar() {
   const [loadingChangelog, setLoadingChangelog] = useState(false);
   const [activeChangelogTab, setActiveChangelogTab] = useState<'frontend' | 'backend'>('frontend');
 
-  // Dynamic navItems based on role
+  // Dynamic navItems based on role & department
   const navItems = [];
-  if (profile?.role === 'admin' || profile?.role === 'hod') {
+  const isAdmin = profile?.role === 'admin';
+  const isHOD = profile?.role === 'hod';
+  const userDept = profile?.department || 'ALL';
+
+  if (isAdmin || isHOD) {
     navItems.push({ href: '/bot', label: 'WhatsApp Bot', icon: Wifi });
   }
+  
   navItems.push({ href: '/clients', label: 'Client Profiles', icon: Users });
-  navItems.push({ href: '/itr', label: 'ITR Filing', icon: FileText });
-  if (profile?.role === 'admin' || profile?.role === 'hod') {
+  
+  // Show ITR Filing if admin, ITR department, or ALL department
+  if (isAdmin || userDept === 'ITR' || userDept === 'ALL') {
+    navItems.push({ href: '/itr', label: 'ITR Filing', icon: FileText });
+  }
+  
+  // Show GST Filing if admin, GST department, or ALL department
+  if (isAdmin || userDept === 'GST' || userDept === 'ALL') {
     navItems.push({ href: '/gst', label: 'GST Filing', icon: Landmark });
+  }
+  
+  // Show DSC Management if admin, DSC department, or ALL department
+  if (isAdmin || userDept === 'DSC' || userDept === 'ALL') {
     navItems.push({ href: '/dsc', label: 'DSC Management', icon: Key });
   }
-  if (profile?.role === 'admin') {
+  
+  if (isAdmin) {
     navItems.push({ href: '/team', label: 'Team Members', icon: Users2 });
   }
 

@@ -7,7 +7,7 @@ export default async function ClientsPage() {
   const supabase = await createSupabaseServer();
   const { data: clientsData, error } = await supabase
     .from('clients')
-    .select('*, itr_filings(id)')
+    .select('*, itr_filings(id, assigned_to)')
     .order('created_at', { ascending: false });
 
   if (error) {

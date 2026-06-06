@@ -3,13 +3,14 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/app/components/AuthProvider';
 import { createSupabaseBrowser } from '@/lib/supabase-browser';
-import { Users2, Shield, Plus, Trash2, Mail, UserPlus, Key, RefreshCw, X, AlertCircle } from 'lucide-react';
+import { Users2, Shield, Trash2, UserPlus, RefreshCw, AlertCircle, Eye, EyeOff, Briefcase } from 'lucide-react';
 
 interface TeamProfile {
   id: string;
   email: string;
   full_name: string;
   role: 'admin' | 'hod' | 'employee';
+  department: 'ITR' | 'GST' | 'DSC' | 'ALL';
   created_at: string;
 }
 
@@ -19,13 +20,16 @@ export default function TeamPage() {
   
   const [team, setTeam] = useState<TeamProfile[]>([]);
   const [loading, setLoading] = useState(true);
-  const [inviteEmail, setInviteEmail] = useState('');
-  const [inviteRole, setInviteRole] = useState<'admin' | 'hod' | 'employee'>('employee');
-  const [inviteName, setInviteName] = useState('');
-  const [inviteLoading, setInviteLoading] = useState(false);
-  const [inviteError, setInviteError] = useState<string | null>(null);
-  const [inviteSuccess, setInviteSuccess] = useState(false);
-  const [showInviteModal, setShowInviteModal] = useState(false);
+  const [createEmail, setCreateEmail] = useState('');
+  const [createPassword, setCreatePassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [createRole, setCreateRole] = useState<'admin' | 'hod' | 'employee'>('employee');
+  const [createDepartment, setCreateDepartment] = useState<'ITR' | 'GST' | 'DSC' | 'ALL'>('ITR');
+  const [createName, setCreateName] = useState('');
+  const [createLoading, setCreateLoading] = useState(false);
+  const [createError, setCreateError] = useState<string | null>(null);
+  const [createSuccess, setCreateSuccess] = useState(false);
+  const [showCreateModal, setShowCreateModal] = useState(false);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
 
   // Restrict access if not an admin
@@ -34,13 +38,10 @@ export default function TeamPage() {
   const fetchTeam = async () => {
     try {
       setLoading(true);
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .order('created_at', { ascending: false });
-
-      if (!error && data) {
-        setTeam(data as TeamProfile[]);
+      const { getAllProfiles } = await import('@/app/actions');
+      const result = await getAllProfiles();
+      if (result.success && result.profiles) {
+        setTeam(result.profiles as TeamProfile[]);
       }
     } catch (err) {
       console.error('Failed to load team profiles:', err);
@@ -69,52 +70,62 @@ export default function TeamPage() {
     );
   }
 
-  const handleInvite = async (e: React.FormEvent) => {
+  const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
-    setInviteError(null);
-    setInviteSuccess(false);
-    setInviteLoading(true);
+    setCreateError(null);
+    setCreateSuccess(false);
+    setCreateLoading(true);
 
     try {
-      // Invite user through backend function or directly if we use server action
-      // Because inviting is an admin-level feature, we call our server actions!
-      // Let's create an action in `app/actions.ts` called `inviteTeamMember` and call it here.
-      const { inviteTeamMember } = await import('@/app/actions');
-      const result = await inviteTeamMember({
-        email: inviteEmail.trim(),
-        role: inviteRole,
-        fullName: inviteName.trim(),
+      const { createTeamMember } = await import('@/app/actions');
+      
+      // Admins are always ALL department, otherwise use selected
+      const finalDept = createRole === 'admin' ? 'ALL' : createDepartment;
+
+      const result = await createTeamMember({
+        email: createEmail.trim(),
+        password: createPassword,
+        role: createRole,
+        department: finalDept,
+        fullName: createName.trim(),
       });
 
       if (!result.success) {
-        setInviteError(result.error || 'Failed to send invite.');
+        setCreateError(result.error || 'Failed to create member.');
       } else {
-        setInviteSuccess(true);
-        setInviteEmail('');
-        setInviteName('');
-        setInviteRole('employee');
-        setShowInviteModal(false);
+        setCreateSuccess(true);
+        setCreateEmail('');
+        setCreatePassword('');
+        setCreateName('');
+        setCreateRole('employee');
+        setCreateDepartment('ITR');
+        setShowCreateModal(false);
         fetchTeam();
       }
     } catch (err: any) {
-      setInviteError(err.message || 'An unexpected error occurred.');
+      setCreateError(err.message || 'An unexpected error occurred.');
     } finally {
-      setInviteLoading(false);
+      setCreateLoading(false);
     }
   };
 
-  const handleUpdateRole = async (userId: string, newRole: 'admin' | 'hod' | 'employee') => {
+  const handleUpdateRoleAndDepartment = async (
+    userId: string, 
+    newRole: 'admin' | 'hod' | 'employee',
+    newDepartment: 'ITR' | 'GST' | 'DSC' | 'ALL'
+  ) => {
     setActionLoading(userId);
     try {
-      const { error } = await supabase
-        .from('profiles')
-        .update({ role: newRole })
-        .eq('id', userId);
+      const { updateTeamMemberRoleAndDepartment } = await import('@/app/actions');
+      
+      // Admins are always ALL department
+      const finalDept = newRole === 'admin' ? 'ALL' : newDepartment;
 
-      if (!error) {
-        setTeam(prev => prev.map(m => m.id === userId ? { ...m, role: newRole } : m));
+      const result = await updateTeamMemberRoleAndDepartment(userId, newRole, finalDept);
+      if (result.success) {
+        setTeam(prev => prev.map(m => m.id === userId ? { ...m, role: newRole, department: finalDept } : m));
       } else {
-        alert(`Failed to update role: ${error.message}`);
+        alert(`Failed to update settings: ${result.error}`);
       }
     } catch (err) {
       console.error(err);
@@ -150,6 +161,15 @@ export default function TeamPage() {
     }
   };
 
+  const roleBadge = (role: string) => {
+    const colors: Record<string, string> = {
+      admin: 'bg-slate-900 text-white border-slate-900',
+      hod: 'bg-blue-50 text-blue-700 border-blue-200',
+      employee: 'bg-slate-50 text-slate-600 border-slate-200',
+    };
+    return colors[role] || colors.employee;
+  };
+
   return (
     <div className="flex-1 bg-white flex flex-col overflow-hidden p-6">
       {/* Header */}
@@ -160,35 +180,43 @@ export default function TeamPage() {
             <Users2 className="w-5 h-5 text-slate-700" /> Team & Role Directory
           </h1>
           <p className="text-[12px] text-slate-500 mt-1 leading-relaxed">
-            Manage your firm's employees, departments, access control tiers, and send team invitation links.
+            Create team accounts, assign access tiers, and manage department allocations.
           </p>
         </div>
         <button
-          onClick={() => setShowInviteModal(true)}
+          onClick={() => setShowCreateModal(true)}
           className="inline-flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-bold text-white bg-blue-600 hover:bg-blue-700 border border-blue-700 rounded-lg hover:shadow-sm transition-all duration-150 cursor-pointer"
         >
           <UserPlus className="w-3.5 h-3.5" />
-          <span>Invite Member</span>
+          <span>Create Member</span>
         </button>
       </div>
+
+      {/* Success Toast */}
+      {createSuccess && (
+        <div className="mb-4 bg-green-50 border border-green-200 rounded-lg px-3 py-2.5 text-[11px] text-green-700 font-medium flex items-center justify-between">
+          <span>Team member created successfully. They can now sign in with their credentials.</span>
+          <button onClick={() => setCreateSuccess(false)} className="text-green-500 hover:text-green-700 ml-2 cursor-pointer">✕</button>
+        </div>
+      )}
 
       {/* Main List */}
       <div className="flex-1 overflow-auto max-w-4xl border border-[#e5e5e5] rounded-xl bg-white shadow-sm">
         {loading ? (
           <div className="flex flex-col items-center justify-center py-20 gap-2">
             <RefreshCw className="w-5 h-5 text-slate-400 animate-spin" />
-            <span className="text-[11px] text-slate-500">Retrieving directory entries...</span>
+            <span className="text-[11px] text-slate-500">Loading team directory...</span>
           </div>
         ) : team.length === 0 ? (
           <div className="text-center py-20 text-[12px] text-slate-400">
-            No team members registered yet. Click Invite Member to add someone.
+            No team members registered yet. Click Create Member to add someone.
           </div>
         ) : (
           <table className="w-full text-[12px] text-left border-collapse">
             <thead>
               <tr className="bg-[#fafafa] border-b border-[#e5e5e5] text-[10px] text-slate-400 uppercase tracking-wider font-semibold select-none">
                 <th className="px-4 py-3 font-semibold">Name / Email</th>
-                <th className="px-4 py-3 font-semibold">Role Tier</th>
+                <th className="px-4 py-3 font-semibold">Role Tier & Department</th>
                 <th className="px-4 py-3 font-semibold">Joined Date</th>
                 <th className="px-4 py-3 text-right font-semibold pr-4">Actions</th>
               </tr>
@@ -204,21 +232,52 @@ export default function TeamPage() {
                   </td>
                   <td className="px-4 py-3">
                     {member.id === profile?.id ? (
-                      <span className="inline-flex items-center gap-1 text-[10.5px] px-2 py-0.5 bg-slate-100 text-slate-800 rounded font-semibold border border-slate-200">
-                        <Shield className="w-3 h-3 text-slate-500" />
-                        <span>Admin (You)</span>
-                      </span>
+                      <div className="flex items-center gap-1.5">
+                        <span className={`inline-flex items-center gap-1 text-[10.5px] px-2 py-0.5 rounded font-semibold border ${roleBadge(member.role)}`}>
+                          <Shield className="w-3 h-3" />
+                          <span>Admin (You)</span>
+                        </span>
+                        <span className="text-[11.5px] font-bold text-slate-400 font-mono">ALL</span>
+                      </div>
                     ) : (
-                      <select
-                        value={member.role}
-                        disabled={actionLoading === member.id}
-                        onChange={(e) => handleUpdateRole(member.id, e.target.value as any)}
-                        className="px-2 py-1 text-[11px] bg-white border border-[#ddd] rounded-md focus:outline-none focus:border-[#999] transition-colors cursor-pointer font-medium text-slate-700"
-                      >
-                        <option value="admin">Admin</option>
-                        <option value="hod">HOD</option>
-                        <option value="employee">Employee</option>
-                      </select>
+                      <div className="flex items-center gap-2">
+                        {/* Role Selector */}
+                        <select
+                          value={member.role}
+                          disabled={actionLoading === member.id}
+                          onChange={(e) => handleUpdateRoleAndDepartment(
+                            member.id, 
+                            e.target.value as any, 
+                            member.department
+                          )}
+                          className="px-2 py-1 text-[11px] bg-white border border-[#ddd] rounded-md focus:outline-none focus:border-[#999] transition-colors cursor-pointer font-medium text-slate-700"
+                        >
+                          <option value="admin">Admin</option>
+                          <option value="hod">HOD</option>
+                          <option value="employee">Employee</option>
+                        </select>
+
+                        {/* Department Selector (Disabled for admins) */}
+                        {member.role !== 'admin' ? (
+                          <select
+                            value={member.department || 'ITR'}
+                            disabled={actionLoading === member.id}
+                            onChange={(e) => handleUpdateRoleAndDepartment(
+                              member.id, 
+                              member.role, 
+                              e.target.value as any
+                            )}
+                            className="px-2 py-1 text-[11px] bg-white border border-[#ddd] rounded-md focus:outline-none focus:border-[#999] transition-colors cursor-pointer font-medium text-slate-700"
+                          >
+                            <option value="ITR">ITR</option>
+                            <option value="GST">GST</option>
+                            <option value="DSC">DSC</option>
+                            <option value="ALL">ALL</option>
+                          </select>
+                        ) : (
+                          <span className="text-[11.5px] font-bold text-slate-400 font-mono px-1">ALL</span>
+                        )}
+                      </div>
                     )}
                   </td>
                   <td className="px-4 py-3 text-[#666] font-medium">
@@ -247,22 +306,22 @@ export default function TeamPage() {
         )}
       </div>
 
-      {/* Invite Modal */}
-      {showInviteModal && (
+      {/* Create Member Modal */}
+      {showCreateModal && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/45 backdrop-blur-[1px]">
           <form
-            onSubmit={handleInvite}
+            onSubmit={handleCreate}
             className="bg-white border border-[#e0e0e0] rounded-xl w-full max-w-sm overflow-hidden shadow-xl animate-in fade-in zoom-in-95 duration-150"
           >
             <div className="bg-[#fafafa] px-4 py-3 border-b border-[#e0e0e0] flex items-center justify-between shrink-0">
               <span className="text-[12px] font-bold text-[#111] uppercase tracking-wider flex items-center gap-1.5">
-                <UserPlus className="w-4 h-4 text-[#555]" /> Invite Team Member
+                <UserPlus className="w-4 h-4 text-[#555]" /> Create Team Member
               </span>
               <button
                 type="button"
                 onClick={() => {
-                  setShowInviteModal(false);
-                  setInviteError(null);
+                  setShowCreateModal(false);
+                  setCreateError(null);
                 }}
                 className="text-[#999] hover:text-[#555] text-xs font-semibold p-1 hover:bg-[#eee] rounded transition-colors cursor-pointer"
               >
@@ -271,12 +330,13 @@ export default function TeamPage() {
             </div>
             
             <div className="p-4 space-y-4">
-              {inviteError && (
+              {createError && (
                 <div className="bg-red-50 border border-red-200 rounded-lg px-3 py-2 text-[11px] text-red-700 font-medium">
-                  {inviteError}
+                  {createError}
                 </div>
               )}
               
+              {/* Full Name */}
               <div className="space-y-1.5">
                 <label className="text-[10px] font-semibold text-[#555] uppercase tracking-wider">
                   Full Name
@@ -284,13 +344,14 @@ export default function TeamPage() {
                 <input
                   type="text"
                   required
-                  value={inviteName}
-                  onChange={(e) => setInviteName(e.target.value)}
+                  value={createName}
+                  onChange={(e) => setCreateName(e.target.value)}
                   placeholder="e.g. John Doe"
                   className="w-full px-3 py-2 text-[12px] bg-[#fafafa] border border-[#ddd] rounded-lg focus:outline-none focus:border-[#999] focus:bg-white transition-all placeholder:text-[#bbb]"
                 />
               </div>
 
+              {/* Email */}
               <div className="space-y-1.5">
                 <label className="text-[10px] font-semibold text-[#555] uppercase tracking-wider">
                   Email Address
@@ -298,20 +359,47 @@ export default function TeamPage() {
                 <input
                   type="email"
                   required
-                  value={inviteEmail}
-                  onChange={(e) => setInviteEmail(e.target.value)}
+                  value={createEmail}
+                  onChange={(e) => setCreateEmail(e.target.value)}
                   placeholder="john.doe@firm.com"
                   className="w-full px-3 py-2 text-[12px] bg-[#fafafa] border border-[#ddd] rounded-lg focus:outline-none focus:border-[#999] focus:bg-white transition-all placeholder:text-[#bbb]"
                 />
               </div>
 
+              {/* Password */}
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-semibold text-[#555] uppercase tracking-wider">
+                  Password
+                </label>
+                <div className="relative">
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    required
+                    minLength={6}
+                    value={createPassword}
+                    onChange={(e) => setCreatePassword(e.target.value)}
+                    placeholder="Min 6 characters"
+                    className="w-full px-3 py-2 pr-10 text-[12px] bg-[#fafafa] border border-[#ddd] rounded-lg focus:outline-none focus:border-[#999] focus:bg-white transition-all placeholder:text-[#bbb]"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-[#aaa] hover:text-[#555] transition-colors cursor-pointer"
+                    tabIndex={-1}
+                  >
+                    {showPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                  </button>
+                </div>
+              </div>
+
+              {/* Role */}
               <div className="space-y-1.5">
                 <label className="text-[10px] font-semibold text-[#555] uppercase tracking-wider">
                   Access Level Tier
                 </label>
                 <select
-                  value={inviteRole}
-                  onChange={(e) => setInviteRole(e.target.value as any)}
+                  value={createRole}
+                  onChange={(e) => setCreateRole(e.target.value as any)}
                   className="w-full px-3 py-2 text-[12px] bg-[#fafafa] border border-[#ddd] rounded-lg focus:outline-none focus:border-[#999] focus:bg-white transition-all cursor-pointer font-medium text-slate-700"
                 >
                   <option value="employee">Employee (Restricted Client Access)</option>
@@ -319,14 +407,33 @@ export default function TeamPage() {
                   <option value="admin">Admin (Full Access & Controls)</option>
                 </select>
               </div>
+
+              {/* Department (Only visible if not Admin) */}
+              {createRole !== 'admin' && (
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-semibold text-[#555] uppercase tracking-wider flex items-center gap-1">
+                    <Briefcase className="w-3 h-3 text-[#555]" /> Assigned Department
+                  </label>
+                  <select
+                    value={createDepartment}
+                    onChange={(e) => setCreateDepartment(e.target.value as any)}
+                    className="w-full px-3 py-2 text-[12px] bg-[#fafafa] border border-[#ddd] rounded-lg focus:outline-none focus:border-[#999] focus:bg-white transition-all cursor-pointer font-medium text-slate-700"
+                  >
+                    <option value="ITR">ITR (Income Tax Return)</option>
+                    <option value="GST">GST (Goods & Services Tax)</option>
+                    <option value="DSC">DSC (Digital Signature Certificate)</option>
+                    <option value="ALL">ALL Departments</option>
+                  </select>
+                </div>
+              )}
             </div>
 
             <div className="bg-[#fafafa] px-4 py-3 border-t border-[#e0e0e0] flex items-center justify-end gap-2 shrink-0">
               <button
                 type="button"
                 onClick={() => {
-                  setShowInviteModal(false);
-                  setInviteError(null);
+                  setShowCreateModal(false);
+                  setCreateError(null);
                 }}
                 className="px-3 py-2 border border-[#ddd] hover:bg-[#eee] rounded-lg text-[11px] font-semibold text-[#555] transition-colors cursor-pointer"
               >
@@ -334,18 +441,18 @@ export default function TeamPage() {
               </button>
               <button
                 type="submit"
-                disabled={inviteLoading}
-                className="px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white border border-blue-700 rounded-lg text-[11px] font-semibold hover:shadow-sm active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed transition-all cursor-pointer flex items-center gap-1.5"
+                disabled={createLoading}
+                className="px-3 py-2 bg-[#111] hover:bg-[#333] text-white border border-[#111] rounded-lg text-[11px] font-semibold hover:shadow-sm active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed transition-all cursor-pointer flex items-center gap-1.5"
               >
-                {inviteLoading ? (
+                {createLoading ? (
                   <>
                     <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                    <span>Inviting...</span>
+                    <span>Creating...</span>
                   </>
                 ) : (
                   <>
                     <UserPlus className="w-3.5 h-3.5" />
-                    <span>Send Invite Link</span>
+                    <span>Create Account</span>
                   </>
                 )}
               </button>

@@ -2,6 +2,17 @@
 
 All notable changes to the CA-bOt Frontend client dashboard will be documented in this file.
 
+## [1.18.0] - 2026-06-01
+### Added
+- **High-Performance Department-Based Access Control (RBAC)**:
+  - Transitioned the entire client assignment model from client-level to **service/department level** (specifically within `itr_filings.assigned_to`), allowing clients to have separate assigned staff for different services (ITR, GST, DSC).
+  - Expanded `profiles` schema to support `department` field configurations (`ITR`, `GST`, `DSC`, `ALL`).
+  - Synced role and department selections directly to Auth `app_metadata` to construct instant, non-recursive Postgres RLS policies based purely on JWT claims.
+  - Refactored `createTeamMember` and `updateTeamMemberRoleAndDepartment` server actions to write department changes seamlessly.
+  - Enhanced the **Team Directory** page: added a department select dropdown to the member creation modal, side-by-side dropdown overrides inside the directory list, and badges displaying both access tiers and active departments.
+  - Revamped **Clients Spreadsheet**: renamed columns to "Assigned (ITR)", filtered the assignable staff dropdown by department for HOD views, and modified drop-down updates to write to the `itr_filings` table.
+  - Implemented **Sidebar Department Filtering**: dynamically filters navigation links so that HODs and Employees only see files and settings belonging to their assigned departments.
+
 ## [1.17.0] - 2026-05-26
 ### Added
 - **Centralized Document Reminder Settings Panel**:

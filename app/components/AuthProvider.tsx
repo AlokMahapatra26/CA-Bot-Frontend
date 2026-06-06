@@ -1,14 +1,16 @@
 'use client';
 
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useState, useRef } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { createSupabaseBrowser } from '@/lib/supabase-browser';
+import { getMyProfile } from '@/app/actions';
 
 export interface UserProfile {
   id: string;
   email: string;
   full_name: string;
   role: 'admin' | 'hod' | 'employee';
+  department: 'ITR' | 'GST' | 'DSC' | 'ALL';
 }
 
 interface AuthContextType {
@@ -32,75 +34,140 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
   const supabase = createSupabaseBrowser();
+  const hasResolved = useRef(false);
+
+  // Helper: fetch profile via server action (bypasses RLS completely)
+  async function fetchProfile(userId: string): Promise<UserProfile | null> {
+    try {
+      const result = await getMyProfile(userId);
+      if (result.success && result.profile) {
+        return result.profile as UserProfile;
+      }
+      console.error('Profile fetch failed:', result.error);
+      return null;
+    } catch (err) {
+      console.error('Profile fetch error:', err);
+      return null;
+    }
+  }
 
   useEffect(() => {
     let mounted = true;
 
+    // Hard safety timeout — never stay on "Validating session..." forever
+    const safetyTimeout = setTimeout(() => {
+      if (mounted && !hasResolved.current) {
+        console.warn('Auth session check timed out — forcing redirect to login');
+        hasResolved.current = true;
+        setLoading(false);
+        setUser(null);
+        setProfile(null);
+      }
+    }, 4000);
+
     async function getSession() {
       try {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (session?.user) {
-          if (mounted) setUser(session.user);
-          
-          // Fetch custom user profile (role, full_name)
-          const { data: prof, error } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('id', session.user.id)
-            .single();
-          
-          if (!error && prof) {
-            if (mounted) setProfile(prof as UserProfile);
-          } else {
-            console.error('Failed to load profile details:', error);
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+
+        if (sessionError || !session?.user) {
+          if (sessionError) {
+            console.warn('Session error:', sessionError.message);
+            try { await supabase.auth.signOut(); } catch {}
           }
+          if (mounted && !hasResolved.current) {
+            hasResolved.current = true;
+            setUser(null);
+            setProfile(null);
+            setLoading(false);
+          }
+          return;
+        }
+
+        // Session is valid
+        if (mounted) setUser(session.user);
+
+        // Fetch profile via server action (bypasses RLS)
+        const prof = await fetchProfile(session.user.id);
+        if (prof) {
+          if (mounted) setProfile(prof);
+        } else {
+          console.warn('No profile found for user, signing out');
+          try { await supabase.auth.signOut(); } catch {}
         }
       } catch (err) {
-        console.error('Auth error retrieving session:', err);
+        console.error('Auth error:', err);
+        try { await supabase.auth.signOut(); } catch {}
       } finally {
-        if (mounted) setLoading(false);
+        if (mounted && !hasResolved.current) {
+          hasResolved.current = true;
+          setLoading(false);
+        }
       }
     }
 
     getSession();
 
-    // Listen for auth state changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (session?.user) {
-        if (mounted) setUser(session.user);
-        
-        // Fetch profile details
-        const { data: prof } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', session.user.id)
-          .single();
-        
-        if (prof) {
-          if (mounted) setProfile(prof as UserProfile);
+    // Listen for auth state changes (login / logout from other tabs, etc.)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event: any, session: any) => {
+      try {
+        if (session?.user) {
+          if (mounted) setUser(session.user);
+
+          const prof = await fetchProfile(session.user.id);
+          if (prof && mounted) {
+            setProfile(prof);
+          }
+        } else {
+          if (mounted) {
+            setUser(null);
+            setProfile(null);
+          }
         }
-      } else {
-        if (mounted) {
-          setUser(null);
-          setProfile(null);
-        }
+      } catch (err) {
+        console.error('Auth state change error:', err);
+      } finally {
+        if (mounted) setLoading(false);
       }
-      if (mounted) setLoading(false);
     });
 
     return () => {
       mounted = false;
+      clearTimeout(safetyTimeout);
       subscription.unsubscribe();
     };
-  }, [supabase]);
+  }, [supabase, router]);
 
   const signOut = async () => {
-    await supabase.auth.signOut();
-    router.push('/login');
-    router.refresh();
+    // 1. Clear all Supabase auth keys from localStorage
+    if (typeof window !== 'undefined') {
+      const keysToRemove: string[] = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && (key.startsWith('sb-') || key.includes('supabase') || key.includes('auth-token'))) {
+          keysToRemove.push(key);
+        }
+      }
+      keysToRemove.forEach(k => localStorage.removeItem(k));
+    }
+
+    // 2. Clear cookies by expiring them
+    if (typeof document !== 'undefined') {
+      document.cookie.split(';').forEach(c => {
+        const name = c.split('=')[0].trim();
+        if (name.startsWith('sb-') || name.includes('supabase')) {
+          document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/;`;
+        }
+      });
+    }
+
+    // 3. Try Supabase network signout (don't block on it)
+    try { await supabase.auth.signOut(); } catch {}
+
+    // 4. Hard redirect — forces full page reload, middleware sees no session
+    window.location.href = '/login';
   };
 
-  // Exclude login screen from getting blocked by auth context loading state to ensure visual responsiveness
+  // Never block the login page
   const isLoginPage = pathname === '/login';
 
   if (loading && !isLoginPage) {

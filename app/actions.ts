@@ -730,33 +730,52 @@ export async function deleteAllClients() {
   }
 }
 
-export async function inviteTeamMember({
+export async function createTeamMember({
   email,
+  password,
   role,
+  department,
   fullName,
 }: {
   email: string;
+  password: string;
   role: string;
+  department: string;
   fullName: string;
 }) {
   try {
     const { createSupabaseAdmin } = await import('@/lib/supabase-server');
     const adminClient = await createSupabaseAdmin();
 
-    const { error } = await adminClient.auth.admin.inviteUserByEmail(email, {
-      data: {
+    const { data, error } = await adminClient.auth.admin.createUser({
+      email,
+      password,
+      email_confirm: true,
+      user_metadata: {
         full_name: fullName,
         role: role,
+        department: department,
       },
-      redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}/login`,
+      app_metadata: {
+        role: role,
+        department: department,
+      },
     });
 
     if (error) throw new Error(error.message);
 
+    // Also update the profiles table directly to ensure role and department are set
+    if (data?.user) {
+      await serverSupabase
+        .from('profiles')
+        .update({ role, department, full_name: fullName })
+        .eq('id', data.user.id);
+    }
+
     return { success: true };
   } catch (error: any) {
-    console.error('Invite Team Member Action Error:', error);
-    return { success: false, error: memberInviteErrorMessage(error) };
+    console.error('Create Team Member Action Error:', error);
+    return { success: false, error: memberCreateErrorMessage(error) };
   }
 }
 
@@ -776,11 +795,79 @@ export async function deleteTeamMember(userId: string) {
   }
 }
 
-function memberInviteErrorMessage(error: any): string {
-  if (error.message?.includes('already registered')) {
+function memberCreateErrorMessage(error: any): string {
+  if (error.message?.includes('already registered') || error.message?.includes('already been registered')) {
     return 'This email address is already registered as a team member.';
   }
-  return error.message || 'Failed to send invite.';
+  return error.message || 'Failed to create team member.';
 }
 
+/**
+ * Fetch the current user's profile using the service role key (bypasses RLS).
+ * This is called from the AuthProvider to avoid RLS recursion issues.
+ */
+export async function getMyProfile(userId: string) {
+  try {
+    const { data, error } = await serverSupabase
+      .from('profiles')
+      .select('*')
+      .eq('id', userId)
+      .single();
 
+    if (error) {
+      return { success: false, error: error.message, profile: null };
+    }
+
+    return { success: true, profile: data };
+  } catch (error: any) {
+    return { success: false, error: error.message, profile: null };
+  }
+}
+
+/**
+ * Fetch all team profiles (bypasses RLS). Admin-only usage.
+ */
+export async function getAllProfiles() {
+  try {
+    const { data, error } = await serverSupabase
+      .from('profiles')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      return { success: false, error: error.message, profiles: [] };
+    }
+
+    return { success: true, profiles: data };
+  } catch (error: any) {
+    return { success: false, error: error.message, profiles: [] };
+  }
+}
+
+/**
+ * Update a team member's role and department (bypasses RLS). Also syncs to auth.users app_metadata.
+ */
+export async function updateTeamMemberRoleAndDepartment(userId: string, newRole: string, newDepartment: string) {
+  try {
+    // Update profiles table
+    const { error } = await serverSupabase
+      .from('profiles')
+      .update({ role: newRole, department: newDepartment })
+      .eq('id', userId);
+
+    if (error) throw new Error(error.message);
+
+    // Also sync to auth.users app_metadata for JWT claims
+    const { createSupabaseAdmin } = await import('@/lib/supabase-server');
+    const adminClient = await createSupabaseAdmin();
+    await adminClient.auth.admin.updateUserById(userId, {
+      app_metadata: { role: newRole, department: newDepartment },
+      user_metadata: { role: newRole, department: newDepartment }
+    });
+
+    return { success: true };
+  } catch (error: any) {
+    console.error('Update Role/Department Error:', error);
+    return { success: false, error: error.message };
+  }
+}
