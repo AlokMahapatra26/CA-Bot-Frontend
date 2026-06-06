@@ -24,6 +24,7 @@ export default function RootDashboardPage() {
     ? allModules
         .filter((m) => features[m.key as keyof typeof features] !== false)
         .filter((m) => {
+          if (m.key === 'bot' && !isAdmin) return false;
           if (m.key === 'clients' && !isAdmin && !isHOD) return false;
           return true;
         })
