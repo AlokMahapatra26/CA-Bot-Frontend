@@ -16,6 +16,12 @@ export default function Sidebar() {
   const [companyName, setCompanyName] = useState<string>(siteData.firmName);
   const [status, setStatus] = useState<'connected' | 'connecting' | 'disconnected'>('disconnected');
   const [botNumber, setBotNumber] = useState<string | null>(null);
+  const [clickedPath, setClickedPath] = useState<string | null>(null);
+
+  // Sync / reset clicked path when navigation completes
+  useEffect(() => {
+    setClickedPath(null);
+  }, [pathname]);
 
 
   // Fetch company name
@@ -110,12 +116,17 @@ export default function Sidebar() {
       {/* Nav */}
       <nav className="flex-1 py-2 px-1.5 space-y-0.5">
         {navItems.map(({ href, label, icon: Icon }) => {
-          const active = pathname === href;
+          const active = clickedPath ? clickedPath === href : pathname === href;
           return (
             <Link
               key={href}
               href={href}
               title={collapsed ? label : undefined}
+              onClick={() => {
+                if (href !== pathname) {
+                  setClickedPath(href);
+                }
+              }}
               className={`flex items-center gap-2 px-2 py-1.5 rounded-lg text-[13px] font-medium transition-colors ${
                 active ? 'bg-[#2563eb] text-white' : 'text-[#555] hover:bg-[#eee]'
               }`}

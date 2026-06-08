@@ -2,6 +2,24 @@
 
 All notable changes to the CA-bOt Frontend client dashboard will be documented in this file.
 
+## [1.21.0] - 2026-06-08
+### Added
+- **Instant Sidebar Active Tab Transition**:
+  - Implemented client-side tab state tracking to instantly highlight the clicked tab (0ms latency), resolving delay from server-side routing.
+  - Automatically resets/synchronizes when the Next.js router updates the `pathname`, maintaining full compatibility with browser history navigation.
+- **Minimalist Loading Screen**:
+  - Created a global `loading.tsx` component that Next.js instantly mounts during route transitions.
+  - Designed a text-free, premium, minimal loading indicator with centered concentric rotating rings and glowing pulses.
+- **Team Member Phone & DOB Integration**:
+  - Added new `phone` (text) and `date_of_birth` (date) columns to the database profile schema and configured auth creation triggers to automatically sync them.
+  - Expanded the Admin member creation modal to include a phone number and Date of Birth (DOB) inputs.
+  - Enhanced the team directory listing to display member phone numbers inline with their email and show birthdays with a custom indicator (🎂 badge).
+- **Improved Team Directory Action Capabilities**:
+  - Added an **Edit** action button opening a modal to update a member's Full Name, Phone Number, and Date of Birth (DOB).
+  - Added an **Email** action button initiating a `mailto:` direct link.
+  - Added a **WhatsApp** action button opening a chat on `https://wa.me/` with the registered phone number.
+  - Added a click-to-copy interface for emails and phone numbers with dynamic feedback badges ("Copy" / "Copied!").
+
 ## [1.20.0] - 2026-06-06
 ### Added
 - **Global Feature Toggle Console**:

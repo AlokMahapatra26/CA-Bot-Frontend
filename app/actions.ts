@@ -806,6 +806,8 @@ export async function createTeamMember({
   department,
   fullName,
   companyId,
+  phone,
+  dateOfBirth,
 }: {
   email: string;
   password: string;
@@ -813,6 +815,8 @@ export async function createTeamMember({
   department: string;
   fullName: string;
   companyId: string;
+  phone?: string;
+  dateOfBirth?: string;
 }) {
   try {
     const { data, error } = await serverSupabase.auth.admin.createUser({
@@ -824,6 +828,8 @@ export async function createTeamMember({
         role: role,
         department: department,
         company_id: companyId,
+        phone: phone || null,
+        date_of_birth: dateOfBirth || null,
       },
       app_metadata: {
         role: role,
@@ -834,11 +840,18 @@ export async function createTeamMember({
 
     if (error) throw new Error(error.message);
 
-    // Also update the profiles table directly to ensure role, department, and company are set
+    // Also update the profiles table directly to ensure role, department, company, phone, and date_of_birth are set
     if (data?.user) {
       await serverSupabase
         .from('profiles')
-        .update({ role, department, full_name: fullName, company_id: companyId })
+        .update({
+          role,
+          department,
+          full_name: fullName,
+          company_id: companyId,
+          phone: phone || null,
+          date_of_birth: dateOfBirth || null,
+        })
         .eq('id', data.user.id);
     }
 
@@ -1125,5 +1138,39 @@ export async function updateQuestionOrder(orderedIds: string[]) {
   } catch (err: any) {
     console.error('updateQuestionOrder Error:', err);
     return { success: false, error: err.message };
+  }
+}
+
+export async function updateTeamMemberDetails({
+  userId,
+  fullName,
+  phone,
+  dateOfBirth,
+}: {
+  userId: string;
+  fullName: string;
+  phone?: string;
+  dateOfBirth?: string;
+}) {
+  try {
+    // 1. Update profiles table
+    const { error } = await serverSupabase
+      .from('profiles')
+      .update({ full_name: fullName, phone: phone || null, date_of_birth: dateOfBirth || null })
+      .eq('id', userId);
+
+    if (error) throw new Error(error.message);
+
+    // 2. Also update auth.users user_metadata for this user
+    const { error: authError } = await serverSupabase.auth.admin.updateUserById(userId, {
+      user_metadata: { full_name: fullName, phone: phone || null, date_of_birth: dateOfBirth || null },
+    });
+
+    if (authError) throw new Error(authError.message);
+
+    return { success: true };
+  } catch (error: any) {
+    console.error('Update Team Member Details Action Error:', error);
+    return { success: false, error: error.message || 'Failed to update team member details.' };
   }
 }

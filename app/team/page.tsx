@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/app/components/AuthProvider';
 import { createSupabaseBrowser } from '@/lib/supabase-browser';
-import { Users2, Shield, Trash2, UserPlus, RefreshCw, AlertCircle, Eye, EyeOff, Briefcase } from 'lucide-react';
+import { Users2, Shield, Trash2, UserPlus, RefreshCw, AlertCircle, Eye, EyeOff, Briefcase, MessageCircle, Mail, Edit2 } from 'lucide-react';
 
 interface TeamProfile {
   id: string;
@@ -11,6 +11,8 @@ interface TeamProfile {
   full_name: string;
   role: 'admin' | 'hod' | 'employee';
   department: 'ITR' | 'GST' | 'DSC' | 'ALL';
+  phone?: string;
+  date_of_birth?: string;
   created_at: string;
 }
 
@@ -26,12 +28,32 @@ export default function TeamPage() {
   const [createRole, setCreateRole] = useState<'admin' | 'hod' | 'employee'>('employee');
   const [createDepartment, setCreateDepartment] = useState<'ITR' | 'GST' | 'DSC' | 'ALL'>('ITR');
   const [createName, setCreateName] = useState('');
+  const [createPhone, setCreatePhone] = useState('');
+  const [createDOB, setCreateDOB] = useState('');
   const [createLoading, setCreateLoading] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
   const [createSuccess, setCreateSuccess] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'ALL' | 'ITR' | 'GST' | 'DSC' | 'MANAGEMENT'>('ALL');
+
+  // Edit Member details state
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editingMember, setEditingMember] = useState<TeamProfile | null>(null);
+  const [editName, setEditName] = useState('');
+  const [editPhone, setEditPhone] = useState('');
+  const [editDOB, setEditDOB] = useState('');
+  const [editLoading, setEditLoading] = useState(false);
+  const [editError, setEditError] = useState<string | null>(null);
+
+  // Copy state
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+
+  const handleCopy = (text: string, id: string) => {
+    navigator.clipboard.writeText(text);
+    setCopiedId(id);
+    setTimeout(() => setCopiedId(null), 1500);
+  };
 
   // Restrict access if not an admin
   const isAdmin = profile?.role === 'admin';
@@ -90,6 +112,8 @@ export default function TeamPage() {
         department: finalDept,
         fullName: createName.trim(),
         companyId: profile?.company_id || '',
+        phone: createPhone.trim() || undefined,
+        dateOfBirth: createDOB.trim() || undefined,
       });
 
       if (!result.success) {
@@ -99,6 +123,8 @@ export default function TeamPage() {
         setCreateEmail('');
         setCreatePassword('');
         setCreateName('');
+        setCreatePhone('');
+        setCreateDOB('');
         setCreateRole('employee');
         setCreateDepartment('ITR');
         setShowCreateModal(false);
@@ -108,6 +134,44 @@ export default function TeamPage() {
       setCreateError(err.message || 'An unexpected error occurred.');
     } finally {
       setCreateLoading(false);
+    }
+  };
+
+  const handleEditClick = (member: TeamProfile) => {
+    setEditingMember(member);
+    setEditName(member.full_name || '');
+    setEditPhone(member.phone || '');
+    setEditDOB(member.date_of_birth || '');
+    setEditError(null);
+    setShowEditModal(true);
+  };
+
+  const handleEditSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingMember) return;
+    setEditError(null);
+    setEditLoading(true);
+
+    try {
+      const { updateTeamMemberDetails } = await import('@/app/actions');
+      const result = await updateTeamMemberDetails({
+        userId: editingMember.id,
+        fullName: editName.trim(),
+        phone: editPhone.trim() || undefined,
+        dateOfBirth: editDOB.trim() || undefined,
+      });
+
+      if (!result.success) {
+        setEditError(result.error || 'Failed to update member details.');
+      } else {
+        setShowEditModal(false);
+        setEditingMember(null);
+        fetchTeam();
+      }
+    } catch (err: any) {
+      setEditError(err.message || 'An error occurred.');
+    } finally {
+      setEditLoading(false);
     }
   };
 
@@ -263,10 +327,46 @@ export default function TeamPage() {
               {filteredTeam.map(member => (
                 <tr key={member.id} className="border-b border-[#f0f0f0] hover:bg-slate-50/50 transition-colors">
                   <td className="px-4 py-3">
-                    <div className="font-semibold text-slate-800">
-                      {member.full_name || member.email.split('@')[0]}
+                    <div className="font-semibold text-slate-800 flex items-center gap-2">
+                      <span>{member.full_name || member.email.split('@')[0]}</span>
+                      {member.date_of_birth && (
+                        <span className="text-[10px] font-medium text-indigo-650 bg-indigo-50/70 px-1.5 py-0.5 rounded-md flex items-center gap-1 select-none" title={`Date of Birth: ${new Date(member.date_of_birth).toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' })}`}>
+                          <span>🎂</span>
+                          <span>{new Date(member.date_of_birth).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}</span>
+                        </span>
+                      )}
                     </div>
-                    <div className="text-[11px] text-slate-400 font-mono mt-0.5">{member.email}</div>
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-x-2 gap-y-0.5 mt-0.5 text-[11px] text-slate-400 font-mono">
+                      <button
+                        onClick={() => handleCopy(member.email, `${member.id}-email`)}
+                        className="hover:text-slate-650 transition-colors cursor-pointer flex items-center gap-1 group text-left border-none bg-transparent p-0 font-mono text-[11px]"
+                        title="Click to copy email"
+                      >
+                        <span>{member.email}</span>
+                        {copiedId === `${member.id}-email` ? (
+                          <span className="text-[9px] text-emerald-600 font-bold bg-emerald-50 px-1 rounded transition-all">Copied!</span>
+                        ) : (
+                          <span className="opacity-0 group-hover:opacity-100 text-[8px] text-slate-400 bg-slate-100 px-1 rounded transition-all scale-90">Copy</span>
+                        )}
+                      </button>
+                      {member.phone && (
+                        <>
+                          <span className="hidden sm:inline text-slate-300">|</span>
+                          <button
+                            onClick={() => handleCopy(member.phone!, `${member.id}-phone`)}
+                            className="hover:text-slate-700 transition-colors cursor-pointer flex items-center gap-1 group text-left border-none bg-transparent p-0 font-mono text-[11px]"
+                            title="Click to copy phone number"
+                          >
+                            <span className="text-slate-500 font-semibold">{member.phone}</span>
+                            {copiedId === `${member.id}-phone` ? (
+                              <span className="text-[9px] text-emerald-600 font-bold bg-emerald-50 px-1 rounded transition-all">Copied!</span>
+                            ) : (
+                              <span className="opacity-0 group-hover:opacity-100 text-[8px] text-slate-400 bg-slate-100 px-1 rounded transition-all scale-90">Copy</span>
+                            )}
+                          </button>
+                        </>
+                      )}
+                    </div>
                   </td>
                   <td className="px-4 py-3">
                     {member.id === profile?.id ? (
@@ -327,17 +427,58 @@ export default function TeamPage() {
                       day: 'numeric',
                     })}
                   </td>
-                  <td className="px-4 py-3 text-right">
-                    {member.id !== profile?.id && (
-                      <button
-                        onClick={() => handleDeleteMember(member.id, member.email)}
-                        disabled={actionLoading === member.id}
-                        className="inline-flex items-center justify-center p-1.5 border border-slate-200 hover:border-red-200 hover:bg-red-50 hover:text-red-600 rounded-lg text-slate-400 transition-colors cursor-pointer"
-                        title="Remove member"
+                  <td className="px-4 py-3">
+                    <div className="flex items-center justify-end gap-1.5">
+                      {/* WhatsApp Button */}
+                      {member.phone ? (
+                        <a
+                          href={`https://wa.me/${member.phone.replace(/\D/g, '')}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center justify-center p-1.5 border border-slate-200 hover:border-emerald-200 hover:bg-emerald-50/50 hover:text-emerald-600 rounded-lg text-slate-400 transition-colors cursor-pointer"
+                          title="Chat on WhatsApp"
+                        >
+                          <MessageCircle className="w-3.5 h-3.5" />
+                        </a>
+                      ) : (
+                        <div
+                          className="inline-flex items-center justify-center p-1.5 border border-slate-100 bg-slate-50 rounded-lg text-slate-300 cursor-not-allowed"
+                          title="No phone number available"
+                        >
+                          <MessageCircle className="w-3.5 h-3.5" />
+                        </div>
+                      )}
+
+                      {/* Email Button */}
+                      <a
+                        href={`mailto:${member.email}`}
+                        className="inline-flex items-center justify-center p-1.5 border border-slate-200 hover:border-blue-200 hover:bg-blue-50/50 hover:text-blue-600 rounded-lg text-slate-400 transition-colors cursor-pointer"
+                        title="Send Email"
                       >
-                        <Trash2 className="w-3.5 h-3.5" />
+                        <Mail className="w-3.5 h-3.5" />
+                      </a>
+
+                      {/* Edit Button */}
+                      <button
+                        onClick={() => handleEditClick(member)}
+                        className="inline-flex items-center justify-center p-1.5 border border-slate-200 hover:border-slate-300 hover:bg-slate-50 hover:text-slate-700 rounded-lg text-slate-400 transition-colors cursor-pointer"
+                        title="Edit details"
+                      >
+                        <Edit2 className="w-3.5 h-3.5" />
                       </button>
-                    )}
+
+                      {/* Delete Button */}
+                      {member.id !== profile?.id && (
+                        <button
+                          onClick={() => handleDeleteMember(member.id, member.email)}
+                          disabled={actionLoading === member.id}
+                          className="inline-flex items-center justify-center p-1.5 border border-slate-200 hover:border-red-200 hover:bg-red-50 hover:text-red-600 rounded-lg text-slate-400 transition-colors cursor-pointer"
+                          title="Remove member"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -388,6 +529,34 @@ export default function TeamPage() {
                   onChange={(e) => setCreateName(e.target.value)}
                   placeholder="e.g. John Doe"
                   className="w-full px-3 py-2 text-[12px] bg-[#fafafa] border border-[#ddd] rounded-lg focus:outline-none focus:border-[#999] focus:bg-white transition-all placeholder:text-[#bbb]"
+                />
+              </div>
+
+              {/* Phone Number */}
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-semibold text-[#555] uppercase tracking-wider">
+                  Phone Number
+                </label>
+                <input
+                  type="tel"
+                  required
+                  value={createPhone}
+                  onChange={(e) => setCreatePhone(e.target.value)}
+                  placeholder="e.g. 919876543210"
+                  className="w-full px-3 py-2 text-[12px] bg-[#fafafa] border border-[#ddd] rounded-lg focus:outline-none focus:border-[#999] focus:bg-white transition-all placeholder:text-[#bbb]"
+                />
+              </div>
+
+              {/* Date of Birth */}
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-semibold text-[#555] uppercase tracking-wider">
+                  Date of Birth
+                </label>
+                <input
+                  type="date"
+                  value={createDOB}
+                  onChange={(e) => setCreateDOB(e.target.value)}
+                  className="w-full px-3 py-2 text-[12px] bg-[#fafafa] border border-[#ddd] rounded-lg focus:outline-none focus:border-[#999] focus:bg-white transition-all text-slate-700 font-mono"
                 />
               </div>
 
@@ -493,6 +662,114 @@ export default function TeamPage() {
                   <>
                     <UserPlus className="w-3.5 h-3.5" />
                     <span>Create Account</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {/* Edit Member Modal */}
+      {showEditModal && editingMember && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/45 backdrop-blur-[1px]">
+          <form
+            onSubmit={handleEditSubmit}
+            className="bg-white border border-[#e0e0e0] rounded-xl w-full max-w-sm overflow-hidden shadow-xl animate-in fade-in zoom-in-95 duration-150"
+          >
+            <div className="bg-[#fafafa] px-4 py-3 border-b border-[#e0e0e0] flex items-center justify-between shrink-0">
+              <span className="text-[12px] font-bold text-[#111] uppercase tracking-wider flex items-center gap-1.5">
+                <Edit2 className="w-4 h-4 text-[#555]" /> Edit Member Details
+              </span>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowEditModal(false);
+                  setEditingMember(null);
+                  setEditError(null);
+                }}
+                className="text-[#999] hover:text-[#555] text-xs font-semibold p-1 hover:bg-[#eee] rounded transition-colors cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+            
+            <div className="p-4 space-y-4">
+              {editError && (
+                <div className="bg-red-50 border border-red-200 rounded-lg px-3 py-2 text-[11px] text-red-700 font-medium">
+                  {editError}
+                </div>
+              )}
+              
+              {/* Full Name */}
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-semibold text-[#555] uppercase tracking-wider">
+                  Full Name
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={editName}
+                  onChange={(e) => setEditName(e.target.value)}
+                  placeholder="e.g. John Doe"
+                  className="w-full px-3 py-2 text-[12px] bg-[#fafafa] border border-[#ddd] rounded-lg focus:outline-none focus:border-[#999] focus:bg-white transition-all placeholder:text-[#bbb]"
+                />
+              </div>
+
+              {/* Phone Number */}
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-semibold text-[#555] uppercase tracking-wider">
+                  Phone Number
+                </label>
+                <input
+                  type="tel"
+                  value={editPhone}
+                  onChange={(e) => setEditPhone(e.target.value)}
+                  placeholder="e.g. 919876543210"
+                  className="w-full px-3 py-2 text-[12px] bg-[#fafafa] border border-[#ddd] rounded-lg focus:outline-none focus:border-[#999] focus:bg-white transition-all placeholder:text-[#bbb]"
+                />
+              </div>
+
+              {/* Date of Birth */}
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-semibold text-[#555] uppercase tracking-wider">
+                  Date of Birth
+                </label>
+                <input
+                  type="date"
+                  value={editDOB}
+                  onChange={(e) => setEditDOB(e.target.value)}
+                  className="w-full px-3 py-2 text-[12px] bg-[#fafafa] border border-[#ddd] rounded-lg focus:outline-none focus:border-[#999] focus:bg-white transition-all text-slate-700 font-mono"
+                />
+              </div>
+            </div>
+
+            <div className="bg-[#fafafa] px-4 py-3 border-t border-[#e0e0e0] flex items-center justify-end gap-2 shrink-0">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowEditModal(false);
+                  setEditingMember(null);
+                  setEditError(null);
+                }}
+                className="px-3 py-2 border border-[#ddd] hover:bg-[#eee] rounded-lg text-[11px] font-semibold text-[#555] transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={editLoading}
+                className="px-3 py-2 bg-[#111] hover:bg-[#333] text-white border border-[#111] rounded-lg text-[11px] font-semibold hover:shadow-sm active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed transition-all cursor-pointer flex items-center gap-1.5"
+              >
+                {editLoading ? (
+                  <>
+                    <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    <span>Saving...</span>
+                  </>
+                ) : (
+                  <>
+                    <Edit2 className="w-3.5 h-3.5" />
+                    <span>Save Changes</span>
                   </>
                 )}
               </button>
