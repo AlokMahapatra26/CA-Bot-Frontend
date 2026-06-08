@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/app/components/AuthProvider';
 import { createSupabaseBrowser } from '@/lib/supabase-browser';
-import { Users2, Shield, Trash2, UserPlus, RefreshCw, AlertCircle, Eye, EyeOff, Briefcase, MessageCircle, Mail, Edit2 } from 'lucide-react';
+import { Users2, Shield, Trash2, UserPlus, RefreshCw, AlertCircle, Eye, EyeOff, Briefcase, MessageCircle, Mail, Edit2, Search, X } from 'lucide-react';
 
 interface TeamProfile {
   id: string;
@@ -35,7 +35,8 @@ export default function TeamPage() {
   const [createSuccess, setCreateSuccess] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'ALL' | 'ITR' | 'GST' | 'DSC' | 'MANAGEMENT'>('ALL');
+  const [activeTab, setActiveTab] = useState<'ALL' | 'ITR' | 'GST' | 'DSC' | 'MANAGEMENT' | 'BIRTHDAYS'>('ALL');
+  const [searchQuery, setSearchQuery] = useState('');
 
   // Edit Member details state
   const [showEditModal, setShowEditModal] = useState(false);
@@ -236,7 +237,82 @@ export default function TeamPage() {
     return colors[role] || colors.employee;
   };
 
+  const isUpcomingBirthday = (dobString?: string): boolean => {
+    if (!dobString) return false;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const dob = new Date(dobString);
+    const dobMonth = dob.getMonth();
+    const dobDate = dob.getDate();
+
+    const thisYearBirthday = new Date(today.getFullYear(), dobMonth, dobDate);
+    let nextBirthday = thisYearBirthday;
+
+    if (thisYearBirthday < today) {
+      nextBirthday = new Date(today.getFullYear() + 1, dobMonth, dobDate);
+    }
+
+    const diffTime = nextBirthday.getTime() - today.getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+    return diffDays >= 0 && diffDays <= 30;
+  };
+
+  const getBirthdayStatus = (dobString: string): string => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const dob = new Date(dobString);
+    const dobMonth = dob.getMonth();
+    const dobDate = dob.getDate();
+
+    const thisYearBirthday = new Date(today.getFullYear(), dobMonth, dobDate);
+    let nextBirthday = thisYearBirthday;
+
+    if (thisYearBirthday < today) {
+      nextBirthday = new Date(today.getFullYear() + 1, dobMonth, dobDate);
+    }
+
+    const diffTime = nextBirthday.getTime() - today.getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    
+    const age = nextBirthday.getFullYear() - dob.getFullYear();
+
+    const formattedDate = nextBirthday.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+
+    if (diffDays === 0) {
+      return `${formattedDate} — Today (Turning ${age})`;
+    } else if (diffDays === 1) {
+      return `${formattedDate} — Tomorrow (Turning ${age})`;
+    } else {
+      return `${formattedDate} — In ${diffDays} days (Turning ${age})`;
+    }
+  };
+
+  const isBirthdayToday = (dobString?: string): boolean => {
+    if (!dobString) return false;
+    const today = new Date();
+    const dob = new Date(dobString);
+    return dob.getMonth() === today.getMonth() && dob.getDate() === today.getDate();
+  };
+
   const filteredTeam = team.filter(member => {
+    if (activeTab === 'BIRTHDAYS') {
+      return isUpcomingBirthday(member.date_of_birth);
+    }
+
+    // Apply search filter only on ALL tab
+    if (activeTab === 'ALL' && searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      const matchesName = (member.full_name || '').toLowerCase().includes(q);
+      const matchesEmail = member.email.toLowerCase().includes(q);
+      const matchesPhone = (member.phone || '').includes(q);
+      const matchesDept = member.department.toLowerCase().includes(q);
+      const matchesRole = member.role.toLowerCase().includes(q);
+      return matchesName || matchesEmail || matchesPhone || matchesDept || matchesRole;
+    }
+
     if (activeTab === 'ALL') return true;
     if (activeTab === 'MANAGEMENT') return member.role === 'admin' || member.role === 'hod' || member.department === 'ALL';
     return member.department === activeTab;
@@ -280,6 +356,7 @@ export default function TeamPage() {
           { id: 'ITR', label: 'ITR Dept' },
           { id: 'GST', label: 'GST Dept' },
           { id: 'DSC', label: 'DSC Dept' },
+          { id: 'BIRTHDAYS', label: 'Birthdays' },
         ].map(tab => (
           <button
             key={tab.id}
@@ -296,11 +373,35 @@ export default function TeamPage() {
                 ? team.length 
                 : tab.id === 'MANAGEMENT'
                   ? team.filter(m => m.role === 'admin' || m.role === 'hod' || m.department === 'ALL').length
-                  : team.filter(m => m.department === tab.id).length}
+                  : tab.id === 'BIRTHDAYS'
+                    ? team.filter(m => isUpcomingBirthday(m.date_of_birth)).length
+                    : team.filter(m => m.department === tab.id).length}
             </span>
           </button>
         ))}
       </div>
+
+      {/* Search bar — only on All Staff tab */}
+      {activeTab === 'ALL' && (
+        <div className="mb-3 relative max-w-sm">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search by name, email, phone, role..."
+            className="w-full pl-8 pr-8 py-2 text-[12px] bg-[#fafafa] border border-[#e0e0e0] rounded-lg focus:outline-none focus:border-slate-400 focus:bg-white transition-all placeholder:text-slate-400"
+          />
+          {searchQuery && (
+            <button
+              onClick={() => setSearchQuery('')}
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          )}
+        </div>
+      )}
 
       {/* Main List */}
       <div className="flex-1 overflow-auto max-w-5xl border border-[#e5e5e5] rounded-xl bg-white shadow-sm">
@@ -318,23 +419,28 @@ export default function TeamPage() {
             <thead>
               <tr className="bg-[#fafafa] border-b border-[#e5e5e5] text-[10px] text-slate-400 uppercase tracking-wider font-semibold select-none">
                 <th className="px-4 py-3 font-semibold">Name / Email</th>
-                <th className="px-4 py-3 font-semibold">Role Tier & Department</th>
-                <th className="px-4 py-3 font-semibold">Joined Date</th>
+                {activeTab !== 'BIRTHDAYS' && <th className="px-4 py-3 font-semibold">Role Tier & Department</th>}
+                <th className="px-4 py-3 font-semibold">
+                  {activeTab === 'BIRTHDAYS' ? 'Birthday / Age' : 'Joined Date'}
+                </th>
                 <th className="px-4 py-3 text-right font-semibold pr-4">Actions</th>
               </tr>
             </thead>
             <tbody>
-              {filteredTeam.map(member => (
-                <tr key={member.id} className="border-b border-[#f0f0f0] hover:bg-slate-50/50 transition-colors">
+              {filteredTeam.map(member => {
+                const isToday = isBirthdayToday(member.date_of_birth);
+                return (
+                <tr
+                  key={member.id}
+                  className={`border-b transition-colors ${
+                    activeTab === 'BIRTHDAYS' && isToday
+                      ? 'bg-amber-50/80 border-amber-200 hover:bg-amber-100/70'
+                      : 'border-[#f0f0f0] hover:bg-slate-50/50'
+                  }`}
+                >
                   <td className="px-4 py-3">
-                    <div className="font-semibold text-slate-800 flex items-center gap-2">
-                      <span>{member.full_name || member.email.split('@')[0]}</span>
-                      {member.date_of_birth && (
-                        <span className="text-[10px] font-medium text-indigo-650 bg-indigo-50/70 px-1.5 py-0.5 rounded-md flex items-center gap-1 select-none" title={`Date of Birth: ${new Date(member.date_of_birth).toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' })}`}>
-                          <span>🎂</span>
-                          <span>{new Date(member.date_of_birth).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}</span>
-                        </span>
-                      )}
+                    <div className="font-semibold text-slate-800">
+                      {member.full_name || member.email.split('@')[0]}
                     </div>
                     <div className="flex flex-col sm:flex-row sm:items-center gap-x-2 gap-y-0.5 mt-0.5 text-[11px] text-slate-400 font-mono">
                       <button
@@ -368,120 +474,153 @@ export default function TeamPage() {
                       )}
                     </div>
                   </td>
-                  <td className="px-4 py-3">
-                    {member.id === profile?.id ? (
-                      <div className="flex items-center gap-1.5">
-                        <span className={`inline-flex items-center gap-1 text-[10.5px] px-2 py-0.5 rounded font-semibold border ${roleBadge(member.role)}`}>
-                          <Shield className="w-3 h-3" />
-                          <span>Admin (You)</span>
-                        </span>
-                        <span className="text-[11.5px] font-bold text-slate-400 font-mono">ALL</span>
-                      </div>
-                    ) : (
-                      <div className="flex items-center gap-2">
-                        {/* Role Selector */}
-                        <select
-                          value={member.role}
-                          disabled={actionLoading === member.id}
-                          onChange={(e) => {
-                            const newRole = e.target.value as any;
-                            if (window.confirm(`Are you sure you want to change this member's role to ${newRole.toUpperCase()}?`)) {
-                              handleUpdateRoleAndDepartment(member.id, newRole, member.department);
-                            }
-                          }}
-                          className="px-2 py-1 text-[11px] bg-white border border-[#ddd] rounded-md focus:outline-none focus:border-[#999] transition-colors cursor-pointer font-medium text-slate-700"
-                        >
-                          <option value="admin">Admin</option>
-                          <option value="hod">HOD</option>
-                          <option value="employee">Employee</option>
-                        </select>
-
-                        {/* Department Selector (Disabled for admins) */}
-                        {member.role !== 'admin' ? (
+                  {activeTab !== 'BIRTHDAYS' && (
+                    <td className="px-4 py-3">
+                      {member.id === profile?.id ? (
+                        <div className="flex items-center gap-1.5">
+                          <span className={`inline-flex items-center gap-1 text-[10.5px] px-2 py-0.5 rounded font-semibold border ${roleBadge(member.role)}`}>
+                            <Shield className="w-3 h-3" />
+                            <span>Admin (You)</span>
+                          </span>
+                          <span className="text-[11.5px] font-bold text-slate-400 font-mono">ALL</span>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-2">
+                          {/* Role Selector */}
                           <select
-                            value={member.department || 'ITR'}
+                            value={member.role}
                             disabled={actionLoading === member.id}
                             onChange={(e) => {
-                              const newDept = e.target.value as any;
-                              if (window.confirm(`Are you sure you want to reassign this member to the ${newDept} department?`)) {
-                                handleUpdateRoleAndDepartment(member.id, member.role, newDept);
+                              const newRole = e.target.value as any;
+                              if (window.confirm(`Are you sure you want to change this member's role to ${newRole.toUpperCase()}?`)) {
+                                handleUpdateRoleAndDepartment(member.id, newRole, member.department);
                               }
                             }}
                             className="px-2 py-1 text-[11px] bg-white border border-[#ddd] rounded-md focus:outline-none focus:border-[#999] transition-colors cursor-pointer font-medium text-slate-700"
                           >
-                            <option value="ITR">ITR</option>
-                            <option value="GST">GST</option>
-                            <option value="DSC">DSC</option>
-                            <option value="ALL">ALL</option>
+                            <option value="admin">Admin</option>
+                            <option value="hod">HOD</option>
+                            <option value="employee">Employee</option>
                           </select>
-                        ) : (
-                          <span className="text-[11.5px] font-bold text-slate-400 font-mono px-1">ALL</span>
-                        )}
-                      </div>
-                    )}
-                  </td>
+
+                          {/* Department Selector (Disabled for admins) */}
+                          {member.role !== 'admin' ? (
+                            <select
+                              value={member.department || 'ITR'}
+                              disabled={actionLoading === member.id}
+                              onChange={(e) => {
+                                const newDept = e.target.value as any;
+                                if (window.confirm(`Are you sure you want to reassign this member to the ${newDept} department?`)) {
+                                  handleUpdateRoleAndDepartment(member.id, member.role, newDept);
+                                }
+                              }}
+                              className="px-2 py-1 text-[11px] bg-white border border-[#ddd] rounded-md focus:outline-none focus:border-[#999] transition-colors cursor-pointer font-medium text-slate-700"
+                            >
+                              <option value="ITR">ITR</option>
+                              <option value="GST">GST</option>
+                              <option value="DSC">DSC</option>
+                              <option value="ALL">ALL</option>
+                            </select>
+                          ) : (
+                            <span className="text-[11.5px] font-bold text-slate-400 font-mono px-1">ALL</span>
+                          )}
+                        </div>
+                      )}
+                    </td>
+                  )}
                   <td className="px-4 py-3 text-[#666] font-medium">
-                    {new Date(member.created_at).toLocaleDateString(undefined, {
-                      year: 'numeric',
-                      month: 'short',
-                      day: 'numeric',
-                    })}
+                    {activeTab === 'BIRTHDAYS' ? (
+                      <span className="text-indigo-600 font-semibold">
+                        {getBirthdayStatus(member.date_of_birth!)}
+                      </span>
+                    ) : (
+                      new Date(member.created_at).toLocaleDateString(undefined, {
+                        year: 'numeric',
+                        month: 'short',
+                        day: 'numeric',
+                      })
+                    )}
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex items-center justify-end gap-1.5">
-                      {/* WhatsApp Button */}
-                      {member.phone ? (
-                        <a
-                          href={`https://wa.me/${member.phone.replace(/\D/g, '')}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center justify-center p-1.5 border border-slate-200 hover:border-emerald-200 hover:bg-emerald-50/50 hover:text-emerald-600 rounded-lg text-slate-400 transition-colors cursor-pointer"
-                          title="Chat on WhatsApp"
-                        >
-                          <MessageCircle className="w-3.5 h-3.5" />
-                        </a>
+                      {activeTab === 'BIRTHDAYS' ? (
+                        /* Birthdays tab: single Send Wishes button */
+                        member.phone ? (
+                          <a
+                            href={`https://wa.me/${member.phone.replace(/\D/g, '')}?text=${encodeURIComponent(`Happy Birthday, ${member.full_name || member.email.split('@')[0]}!\n\nWishing you a wonderful birthday filled with joy and success. May this new year of your life bring great achievements and happiness!\n\n- Team`)}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-semibold rounded-lg border transition-colors cursor-pointer ${
+                              isToday
+                                ? 'bg-amber-500 hover:bg-amber-600 text-white border-amber-500'
+                                : 'bg-emerald-600 hover:bg-emerald-700 text-white border-emerald-600'
+                            }`}
+                          >
+                            <MessageCircle className="w-3.5 h-3.5" />
+                            Send Wishes
+                          </a>
+                        ) : (
+                          <span className="text-[11px] text-slate-400 italic">No phone</span>
+                        )
                       ) : (
-                        <div
-                          className="inline-flex items-center justify-center p-1.5 border border-slate-100 bg-slate-50 rounded-lg text-slate-300 cursor-not-allowed"
-                          title="No phone number available"
-                        >
-                          <MessageCircle className="w-3.5 h-3.5" />
-                        </div>
-                      )}
+                        /* Other tabs: full action buttons */
+                        <>
+                          {/* WhatsApp Button */}
+                          {member.phone ? (
+                            <a
+                              href={`https://wa.me/${member.phone.replace(/\D/g, '')}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center justify-center p-1.5 border border-slate-200 hover:border-emerald-200 hover:bg-emerald-50/50 hover:text-emerald-600 rounded-lg text-slate-400 transition-colors cursor-pointer"
+                              title="Chat on WhatsApp"
+                            >
+                              <MessageCircle className="w-3.5 h-3.5" />
+                            </a>
+                          ) : (
+                            <div
+                              className="inline-flex items-center justify-center p-1.5 border border-slate-100 bg-slate-50 rounded-lg text-slate-300 cursor-not-allowed"
+                              title="No phone number available"
+                            >
+                              <MessageCircle className="w-3.5 h-3.5" />
+                            </div>
+                          )}
 
-                      {/* Email Button */}
-                      <a
-                        href={`mailto:${member.email}`}
-                        className="inline-flex items-center justify-center p-1.5 border border-slate-200 hover:border-blue-200 hover:bg-blue-50/50 hover:text-blue-600 rounded-lg text-slate-400 transition-colors cursor-pointer"
-                        title="Send Email"
-                      >
-                        <Mail className="w-3.5 h-3.5" />
-                      </a>
+                          {/* Email Button */}
+                          <a
+                            href={`mailto:${member.email}`}
+                            className="inline-flex items-center justify-center p-1.5 border border-slate-200 hover:border-blue-200 hover:bg-blue-50/50 hover:text-blue-600 rounded-lg text-slate-400 transition-colors cursor-pointer"
+                            title="Send Email"
+                          >
+                            <Mail className="w-3.5 h-3.5" />
+                          </a>
 
-                      {/* Edit Button */}
-                      <button
-                        onClick={() => handleEditClick(member)}
-                        className="inline-flex items-center justify-center p-1.5 border border-slate-200 hover:border-slate-300 hover:bg-slate-50 hover:text-slate-700 rounded-lg text-slate-400 transition-colors cursor-pointer"
-                        title="Edit details"
-                      >
-                        <Edit2 className="w-3.5 h-3.5" />
-                      </button>
+                          {/* Edit Button */}
+                          <button
+                            onClick={() => handleEditClick(member)}
+                            className="inline-flex items-center justify-center p-1.5 border border-slate-200 hover:border-slate-300 hover:bg-slate-50 hover:text-slate-700 rounded-lg text-slate-400 transition-colors cursor-pointer"
+                            title="Edit details"
+                          >
+                            <Edit2 className="w-3.5 h-3.5" />
+                          </button>
 
-                      {/* Delete Button */}
-                      {member.id !== profile?.id && (
-                        <button
-                          onClick={() => handleDeleteMember(member.id, member.email)}
-                          disabled={actionLoading === member.id}
-                          className="inline-flex items-center justify-center p-1.5 border border-slate-200 hover:border-red-200 hover:bg-red-50 hover:text-red-600 rounded-lg text-slate-400 transition-colors cursor-pointer"
-                          title="Remove member"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
+                          {/* Delete Button */}
+                          {member.id !== profile?.id && (
+                            <button
+                              onClick={() => handleDeleteMember(member.id, member.email)}
+                              disabled={actionLoading === member.id}
+                              className="inline-flex items-center justify-center p-1.5 border border-slate-200 hover:border-red-200 hover:bg-red-50 hover:text-red-600 rounded-lg text-slate-400 transition-colors cursor-pointer"
+                              title="Remove member"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                        </>
                       )}
                     </div>
                   </td>
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
           </table>
         )}

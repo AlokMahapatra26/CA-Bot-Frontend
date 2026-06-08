@@ -13,7 +13,8 @@ All notable changes to the CA-bOt Frontend client dashboard will be documented i
 - **Team Member Phone & DOB Integration**:
   - Added new `phone` (text) and `date_of_birth` (date) columns to the database profile schema and configured auth creation triggers to automatically sync them.
   - Expanded the Admin member creation modal to include a phone number and Date of Birth (DOB) inputs.
-  - Enhanced the team directory listing to display member phone numbers inline with their email and show birthdays with a custom indicator (🎂 badge).
+  - Integrated a dedicated **Upcoming Birthdays 🎂** directory tab that filters staff birthdays occurring in the next 30 days.
+  - Displays remaining countdown days and ages dynamically inside a dedicated "Birthday / Age" column (e.g. *In 7 days 🎈 Turning 31*).
 - **Improved Team Directory Action Capabilities**:
   - Added an **Edit** action button opening a modal to update a member's Full Name, Phone Number, and Date of Birth (DOB).
   - Added an **Email** action button initiating a `mailto:` direct link.
