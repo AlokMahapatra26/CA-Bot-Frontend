@@ -489,8 +489,21 @@ export async function uploadItrvReceipt(filingId: string, formData: FormData) {
   }
 }
 
-export async function importClients(clients: Array<{ full_name: string; phone_number: string; email?: string }>) {
+export async function importClients(clients: Array<{ full_name: string; phone_number: string; email?: string; date_of_birth?: string | null; services?: string[] }>) {
   try {
+    // Fetch user profile to get company_id
+    const supabase = await createSupabaseServer();
+    const { data: { user } } = await supabase.auth.getUser();
+    let companyId = null;
+    if (user) {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('company_id')
+        .eq('id', user.id)
+        .single();
+      companyId = profile?.company_id || null;
+    }
+
     const toInsert = clients.map(c => {
       let phone = c.phone_number.replace(/\D/g, '');
       if (phone.length === 10) {
@@ -503,16 +516,42 @@ export async function importClients(clients: Array<{ full_name: string; phone_nu
         phone_number: phone || null,
         whatsapp_jid: jid,
         email: c.email?.trim().toLowerCase() || null,
+        date_of_birth: c.date_of_birth || null,
         bot_status: 'REGISTERED',
         account_status: 'APPROVED',
+        company_id: companyId,
+        services: c.services || [],
       };
     });
 
-    const { error } = await serverSupabase
+    const { data: insertedClients, error } = await serverSupabase
       .from('clients')
-      .insert(toInsert);
+      .insert(toInsert)
+      .select('id, services');
 
     if (error) throw new Error(error.message);
+
+    // Create matching ITR filings for any client that opted for ITR
+    if (insertedClients && insertedClients.length > 0) {
+      const itrFilingsToInsert = insertedClients
+        .filter(c => c.services && c.services.includes('ITR'))
+        .map(c => ({
+          client_id: c.id,
+          fy_year: '2025-26',
+          status: 'AWAITING_INCOME_SOURCE',
+          filing_status: 'AWAITING_DOCS',
+          company_id: companyId
+        }));
+
+      if (itrFilingsToInsert.length > 0) {
+        const { error: filingErr } = await serverSupabase
+          .from('itr_filings')
+          .insert(itrFilingsToInsert);
+        if (filingErr) {
+          console.error('Failed to auto-create ITR filings on import:', filingErr.message);
+        }
+      }
+    }
 
     revalidatePath('/clients');
     return { success: true };
@@ -530,6 +569,7 @@ export async function updateClientProfile(clientId: string, updates: {
   account_status?: string;
   bot_status?: string;
   has_itr?: boolean;
+  services?: string[];
 }) {
   try {
     let phone = updates.phone_number.replace(/\D/g, '');
@@ -548,14 +588,16 @@ export async function updateClientProfile(clientId: string, updates: {
         date_of_birth: updates.date_of_birth || null,
         account_status: updates.account_status || 'PENDING',
         bot_status: updates.bot_status || 'REGISTERED',
+        services: updates.services || [],
       })
       .eq('id', clientId);
 
     if (error) throw new Error(error.message);
 
     // Sync ITR filing active status
-    if (updates.has_itr !== undefined) {
-      if (updates.has_itr) {
+    const hasItr = updates.services ? updates.services.includes('ITR') : updates.has_itr;
+    if (hasItr !== undefined) {
+      if (hasItr) {
         const { data: existing } = await serverSupabase
           .from('itr_filings')
           .select('id')
@@ -563,13 +605,21 @@ export async function updateClientProfile(clientId: string, updates: {
           .maybeSingle();
 
         if (!existing) {
+          // Fetch client's company_id
+          const { data: clientData } = await serverSupabase
+            .from('clients')
+            .select('company_id')
+            .eq('id', clientId)
+            .single();
+
           await serverSupabase
             .from('itr_filings')
             .insert({
               client_id: clientId,
               fy_year: '2025-26',
               status: 'AWAITING_INCOME_SOURCE',
-              filing_status: 'AWAITING_DOCS'
+              filing_status: 'AWAITING_DOCS',
+              company_id: clientData?.company_id || null
             });
         }
       } else {
@@ -645,6 +695,7 @@ export async function createClientProfile(client: {
   email?: string | null;
   date_of_birth?: string | null;
   account_status?: string;
+  services?: string[];
   has_itr?: boolean;
 }) {
   try {
@@ -653,6 +704,19 @@ export async function createClientProfile(client: {
       phone = `91${phone}`;
     }
     const jid = phone ? `${phone}@s.whatsapp.net` : null;
+
+    // Fetch the logged-in user's company_id to associate with this client
+    const supabase = await createSupabaseServer();
+    const { data: { user } } = await supabase.auth.getUser();
+    let companyId = null;
+    if (user) {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('company_id')
+        .eq('id', user.id)
+        .single();
+      companyId = profile?.company_id || null;
+    }
 
     const { data: inserted, error } = await serverSupabase
       .from('clients')
@@ -664,6 +728,8 @@ export async function createClientProfile(client: {
         date_of_birth: client.date_of_birth || null,
         account_status: client.account_status || 'APPROVED',
         bot_status: 'REGISTERED',
+        company_id: companyId,
+        services: client.services || [],
       })
       .select('id')
       .single();
@@ -671,14 +737,16 @@ export async function createClientProfile(client: {
     if (error) throw new Error(error.message);
 
     // Sync ITR filing active status
-    if (client.has_itr && inserted) {
+    const hasItr = client.services ? client.services.includes('ITR') : client.has_itr;
+    if (hasItr && inserted) {
       await serverSupabase
         .from('itr_filings')
         .insert({
           client_id: inserted.id,
           fy_year: '2025-26',
           status: 'AWAITING_INCOME_SOURCE',
-          filing_status: 'AWAITING_DOCS'
+          filing_status: 'AWAITING_DOCS',
+          company_id: companyId
         });
     }
 
@@ -963,71 +1031,6 @@ export async function getCompanyName(companyId: string) {
   }
 }
 
-// ---------------------------------------------------------------------------
-// CHAT SYSTEM ACTIONS
-// ---------------------------------------------------------------------------
-
-export async function getMessages(channelName: string) {
-  try {
-    const supabase = await createSupabaseServer();
-    const { data: { user } } = await supabase.auth.getUser();
-    
-    if (!user) throw new Error('Unauthorized');
-
-    // Fetch messages with sender profile info. RLS will ensure we only get messages from our company and allowed channels.
-    const { data, error } = await supabase
-      .from('messages')
-      .select(`
-        id,
-        content,
-        channel_name,
-        created_at,
-        sender:profiles (
-          id,
-          full_name,
-          email,
-          role,
-          department
-        )
-      `)
-      .eq('channel_name', channelName)
-      .order('created_at', { ascending: true })
-      .limit(100);
-
-    if (error) throw new Error(error.message);
-
-    return { success: true, messages: data };
-  } catch (error: any) {
-    return { success: false, error: error.message };
-  }
-}
-
-export async function sendMessage(channelName: string, content: string, companyId: string) {
-  try {
-    const supabase = await createSupabaseServer();
-    const { data: { user } } = await supabase.auth.getUser();
-    
-    if (!user) throw new Error('Unauthorized');
-
-    // RLS will reject this if the user doesn't have access to the channel or if companyId mismatches
-    const { data, error } = await supabase
-      .from('messages')
-      .insert({
-        company_id: companyId,
-        sender_id: user.id,
-        channel_name: channelName,
-        content: content.trim()
-      })
-      .select()
-      .single();
-
-    if (error) throw new Error(error.message);
-
-    return { success: true, message: data };
-  } catch (error: any) {
-    return { success: false, error: error.message };
-  }
-}
 
 export async function assignClientProfile(clientId: string, staffId: string | null) {
   try {
@@ -1043,6 +1046,84 @@ export async function assignClientProfile(clientId: string, staffId: string | nu
     return { success: true };
   } catch (err: any) {
     console.error('AssignClientProfile Error:', err);
+    return { success: false, error: err.message };
+  }
+}
+
+export async function getBotQuestions() {
+  try {
+    const supabase = await createSupabaseServer();
+    const { data, error } = await supabase
+      .from('bot_questions')
+      .select('*')
+      .order('sequence_order', { ascending: true });
+
+    if (error) throw new Error(error.message);
+    return { success: true, questions: data || [] };
+  } catch (err: any) {
+    console.error('getBotQuestions Error:', err);
+    return { success: false, error: err.message };
+  }
+}
+
+export async function saveBotQuestion(question: {
+  id: string;
+  sequence_order: number;
+  question_text: string;
+  expected_type: 'text' | 'phone' | 'date' | 'email' | 'file';
+  validation_regex?: string | null;
+  error_message?: string | null;
+}) {
+  try {
+    const supabase = await createSupabaseServer();
+    const { data, error } = await supabase
+      .from('bot_questions')
+      .upsert(question)
+      .select()
+      .single();
+
+    if (error) throw new Error(error.message);
+    revalidatePath('/bot-builder');
+    return { success: true, question: data };
+  } catch (err: any) {
+    console.error('saveBotQuestion Error:', err);
+    return { success: false, error: err.message };
+  }
+}
+
+export async function deleteBotQuestion(id: string) {
+  try {
+    const supabase = await createSupabaseServer();
+    const { error } = await supabase
+      .from('bot_questions')
+      .delete()
+      .eq('id', id);
+
+    if (error) throw new Error(error.message);
+    revalidatePath('/bot-builder');
+    return { success: true };
+  } catch (err: any) {
+    console.error('deleteBotQuestion Error:', err);
+    return { success: false, error: err.message };
+  }
+}
+
+export async function updateQuestionOrder(orderedIds: string[]) {
+  try {
+    const supabase = await createSupabaseServer();
+    // Perform updates sequentially
+    for (let i = 0; i < orderedIds.length; i++) {
+      const { error } = await supabase
+        .from('bot_questions')
+        .update({ sequence_order: i + 1 })
+        .eq('id', orderedIds[i]);
+      
+      if (error) throw new Error(error.message);
+    }
+    revalidatePath('/bot-builder');
+    return { success: true };
+  } catch (err: any) {
+    console.error('updateQuestionOrder Error:', err);
     return { success: false, error: err.message };
   }
 }

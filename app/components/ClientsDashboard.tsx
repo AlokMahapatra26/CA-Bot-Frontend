@@ -260,6 +260,8 @@ export default function ClientsDashboard({ clientsData }: ClientsDashboardProps)
         const nameIdx = headers.findIndex(h => h.includes('name'));
         const phoneIdx = headers.findIndex(h => h.includes('phone') || h.includes('mobile') || h.includes('number'));
         const emailIdx = headers.findIndex(h => h.includes('email') || h.includes('mail'));
+        const dobIdx = headers.findIndex(h => h.includes('dob') || h.includes('birth') || h.includes('date_of_birth'));
+        const servicesIdx = headers.findIndex(h => h.includes('service') || h.includes('opted'));
 
         if (nameIdx === -1 || phoneIdx === -1) {
           alert('❌ Invalid CSV structure: Must contain at least "name" and "phone" columns as headers.');
@@ -267,7 +269,38 @@ export default function ClientsDashboard({ clientsData }: ClientsDashboardProps)
           return;
         }
 
-        const clients: Array<{ full_name: string; phone_number: string; email?: string }> = [];
+        const parseCSVDate = (dateStr: string): string | null => {
+          if (!dateStr) return null;
+          const cleaned = dateStr.trim();
+          if (!cleaned) return null;
+
+          if (/^\d{4}-\d{2}-\d{2}$/.test(cleaned)) {
+            return cleaned;
+          }
+
+          const separatorMatch = cleaned.match(/[-/]/);
+          if (separatorMatch) {
+            const sep = separatorMatch[0];
+            const parts = cleaned.split(sep);
+            if (parts.length === 3) {
+              if (parts[0].length === 4) {
+                const y = parts[0];
+                const m = parts[1].padStart(2, '0');
+                const d = parts[2].padStart(2, '0');
+                return `${y}-${m}-${d}`;
+              }
+              if (parts[2].length === 4) {
+                const d = parts[0].padStart(2, '0');
+                const m = parts[1].padStart(2, '0');
+                const y = parts[2];
+                return `${y}-${m}-${d}`;
+              }
+            }
+          }
+          return null;
+        };
+
+        const clients: Array<{ full_name: string; phone_number: string; email?: string; date_of_birth?: string | null; services?: string[] }> = [];
 
         for (let i = 1; i < lines.length; i++) {
           const line = lines[i].trim();
@@ -293,12 +326,22 @@ export default function ClientsDashboard({ clientsData }: ClientsDashboardProps)
           const name = cells[nameIdx];
           const phone = cells[phoneIdx];
           const email = emailIdx !== -1 ? cells[emailIdx] : undefined;
+          const dobRaw = dobIdx !== -1 ? cells[dobIdx] : '';
+          const servicesRaw = servicesIdx !== -1 ? cells[servicesIdx] : '';
+
+          const services = servicesRaw
+            ? servicesRaw.split(/[,;|]/).map(s => s.trim().toUpperCase()).filter(Boolean)
+            : [];
+
+          const date_of_birth = parseCSVDate(dobRaw);
 
           if (name && phone) {
             clients.push({
               full_name: name,
               phone_number: phone,
-              email: email || undefined
+              email: email || undefined,
+              date_of_birth,
+              services
             });
           }
         }
@@ -392,9 +435,19 @@ export default function ClientsDashboard({ clientsData }: ClientsDashboardProps)
     // Services filter
     if (filterService !== 'ALL') {
       if (filterService === 'ITR') {
-        result = result.filter((c: any) => c.itr_filings && c.itr_filings.length > 0);
+        result = result.filter((c: any) => 
+          (c.itr_filings && c.itr_filings.length > 0) || 
+          (c.services && c.services.includes('ITR'))
+        );
+      } else if (filterService === 'GST') {
+        result = result.filter((c: any) => c.services && c.services.includes('GST'));
+      } else if (filterService === 'DSC') {
+        result = result.filter((c: any) => c.services && c.services.includes('DSC'));
       } else if (filterService === 'NONE') {
-        result = result.filter((c: any) => !c.itr_filings || c.itr_filings.length === 0);
+        result = result.filter((c: any) => 
+          (!c.itr_filings || c.itr_filings.length === 0) && 
+          (!c.services || c.services.length === 0)
+        );
       }
     }
 
@@ -430,7 +483,7 @@ export default function ClientsDashboard({ clientsData }: ClientsDashboardProps)
   }, [filtered, currentPage, pageSize]);
 
   const downloadTemplate = () => {
-    const csvContent = "full_name,phone_number,email\nAlok Kumar,919876543210,alok@example.com\nJane Doe,919988776655,jane@example.com";
+    const csvContent = "full_name,phone_number,email,date_of_birth,services\nAlok Kumar,919876543210,alok@example.com,15-03-2011,\"ITR, GST\"\nJane Doe,919988776655,jane@example.com,20-10-1995,ITR";
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -441,7 +494,7 @@ export default function ClientsDashboard({ clientsData }: ClientsDashboardProps)
   };
 
   const exportCSV = () => {
-    const headers = ['Full Name', 'Phone Number', 'WhatsApp JID', 'Date of Birth', 'Email', 'Account Status', 'Bot Status', 'PAN Card', 'Aadhaar Card', 'Joined Date'];
+    const headers = ['Full Name', 'Phone Number', 'WhatsApp JID', 'Date of Birth', 'Email', 'Account Status', 'Bot Status', 'PAN Card', 'Aadhaar Card', 'Services', 'Joined Date'];
     const rows = filtered.map((c: any) => [
       c.full_name || 'Anonymous',
       c.phone_number ? `+${c.phone_number}` : '',
@@ -452,6 +505,7 @@ export default function ClientsDashboard({ clientsData }: ClientsDashboardProps)
       c.bot_status || '',
       c.pan_media_url ? 'Uploaded' : '',
       c.aadhaar_media_url ? 'Uploaded' : '',
+      c.services ? (Array.isArray(c.services) ? c.services.join('; ') : c.services) : '',
       c.created_at ? new Date(c.created_at).toLocaleDateString('en-IN') : ''
     ].map(v => `"${String(v).replace(/"/g, '""')}"`));
 
@@ -531,7 +585,9 @@ export default function ClientsDashboard({ clientsData }: ClientsDashboardProps)
                 date_of_birth: '',
                 account_status: 'APPROVED',
                 bot_status: 'REGISTERED',
-                has_itr: false
+                has_itr: false,
+                has_gst: false,
+                has_dsc: false
               });
             }}
             className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-medium text-[#555] bg-white border border-[#ddd] rounded-lg hover:border-[#aaa] transition-colors"
@@ -612,6 +668,8 @@ export default function ClientsDashboard({ clientsData }: ClientsDashboardProps)
           >
             <option value="ALL">All Services</option>
             <option value="ITR">Has Active ITR</option>
+            <option value="GST">Has Active GST</option>
+            <option value="DSC">Has Active DSC</option>
             <option value="NONE">No Active Services</option>
           </select>
         </div>
@@ -746,7 +804,7 @@ export default function ClientsDashboard({ clientsData }: ClientsDashboardProps)
                   </td>
                   <td className="px-3 py-2 border-r border-[#eee]">
                     <div className="flex items-center gap-1 flex-wrap">
-                      {client.itr_filings && client.itr_filings.length > 0 ? (
+                      {(client.itr_filings && client.itr_filings.length > 0) || (client.services && client.services.includes('ITR')) ? (
                         <Link
                           href="/itr"
                           className="inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider bg-blue-50 text-blue-700 border border-blue-200 rounded hover:bg-blue-100 hover:border-blue-300 transition-colors cursor-pointer"
@@ -755,12 +813,24 @@ export default function ClientsDashboard({ clientsData }: ClientsDashboardProps)
                           <FileText className="w-2.5 h-2.5" /> ITR
                         </Link>
                       ) : null}
-                      {/* GST & DSC tags — greyed out until modules go live */}
-                      {/* 
-                      <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider bg-slate-50 text-slate-400 border border-slate-200 rounded">GST</span>
-                      <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider bg-slate-50 text-slate-400 border border-slate-200 rounded">DSC</span>
-                      */}
-                      {(!client.itr_filings || client.itr_filings.length === 0) && (
+                      {client.services && client.services.includes('GST') ? (
+                        <Link
+                          href="/gst"
+                          className="inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider bg-emerald-50 text-emerald-700 border border-emerald-200 rounded hover:bg-emerald-100 hover:border-emerald-300 transition-colors cursor-pointer"
+                          title="View GST filing"
+                        >
+                          GST
+                        </Link>
+                      ) : null}
+                      {client.services && client.services.includes('DSC') ? (
+                        <span
+                          className="inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider bg-indigo-50 text-indigo-700 border border-indigo-200 rounded"
+                          title="DSC Service"
+                        >
+                          DSC
+                        </span>
+                      ) : null}
+                      {(!client.services || client.services.length === 0) && (!client.itr_filings || client.itr_filings.length === 0) && (
                         <span className="text-[10px] text-[#ccc]">—</span>
                       )}
                     </div>
@@ -802,7 +872,9 @@ export default function ClientsDashboard({ clientsData }: ClientsDashboardProps)
                             date_of_birth: client.date_of_birth || '',
                             account_status: client.account_status || 'PENDING',
                             bot_status: client.bot_status || 'REGISTERED',
-                            has_itr: !!(client.itr_filings && client.itr_filings.length > 0)
+                            has_itr: !!(client.itr_filings && client.itr_filings.length > 0) || !!(client.services && client.services.includes('ITR')),
+                            has_gst: !!(client.services && client.services.includes('GST')),
+                            has_dsc: !!(client.services && client.services.includes('DSC'))
                           });
                         }}
                         className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-medium text-[#555] bg-white border border-[#ddd] rounded-lg hover:border-[#aaa] transition-colors"
@@ -950,7 +1022,17 @@ export default function ClientsDashboard({ clientsData }: ClientsDashboardProps)
                 setIsUpdating(true);
                 try {
                   const formattedDob = dobDay && dobMonth && dobYear ? `${dobYear}-${dobMonth}-${dobDay}` : null;
-                  const submissionData = { ...editForm, date_of_birth: formattedDob };
+                  
+                  const services: string[] = [];
+                  if (editForm.has_itr) services.push('ITR');
+                  if (editForm.has_gst) services.push('GST');
+                  if (editForm.has_dsc) services.push('DSC');
+
+                  const submissionData = { 
+                    ...editForm, 
+                    date_of_birth: formattedDob,
+                    services 
+                  };
                   
                   let res;
                   if (editingClient.id === 'NEW') {
@@ -1081,17 +1163,43 @@ export default function ClientsDashboard({ clientsData }: ClientsDashboardProps)
               {/* Active Services */}
               <div className="space-y-1.5 pt-1">
                 <label className="text-[11px] font-semibold text-[#555] uppercase tracking-wider block">Active Services</label>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    id="has_itr"
-                    checked={editForm.has_itr || false}
-                    onChange={(e) => setEditForm({ ...editForm, has_itr: e.target.checked })}
-                    className="w-3.5 h-3.5 text-blue-600 border-[#ddd] rounded focus:ring-blue-500 cursor-pointer"
-                  />
-                  <label htmlFor="has_itr" className="text-[12px] text-slate-700 font-medium cursor-pointer select-none">
-                    ITR Filing (Income Tax Return)
-                  </label>
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      id="has_itr"
+                      checked={editForm.has_itr || false}
+                      onChange={(e) => setEditForm({ ...editForm, has_itr: e.target.checked })}
+                      className="w-3.5 h-3.5 text-blue-600 border-[#ddd] rounded focus:ring-blue-500 cursor-pointer"
+                    />
+                    <label htmlFor="has_itr" className="text-[12px] text-slate-700 font-medium cursor-pointer select-none">
+                      ITR Filing (Income Tax Return)
+                    </label>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      id="has_gst"
+                      checked={editForm.has_gst || false}
+                      onChange={(e) => setEditForm({ ...editForm, has_gst: e.target.checked })}
+                      className="w-3.5 h-3.5 text-blue-600 border-[#ddd] rounded focus:ring-blue-500 cursor-pointer"
+                    />
+                    <label htmlFor="has_gst" className="text-[12px] text-slate-700 font-medium cursor-pointer select-none">
+                      GST Filing (Goods & Services Tax)
+                    </label>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      id="has_dsc"
+                      checked={editForm.has_dsc || false}
+                      onChange={(e) => setEditForm({ ...editForm, has_dsc: e.target.checked })}
+                      className="w-3.5 h-3.5 text-blue-600 border-[#ddd] rounded focus:ring-blue-500 cursor-pointer"
+                    />
+                    <label htmlFor="has_dsc" className="text-[12px] text-slate-700 font-medium cursor-pointer select-none">
+                      DSC (Digital Signature Certificate)
+                    </label>
+                  </div>
                 </div>
               </div>
 

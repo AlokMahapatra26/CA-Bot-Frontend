@@ -22,9 +22,6 @@ function LayoutShellContent({ children }: { children: React.ReactNode }) {
     if (pathname.startsWith('/bot') && !features.bot) {
       isBlocked = true;
       blockedFeatureName = 'WhatsApp Bot';
-    } else if (pathname.startsWith('/chat') && !features.chat) {
-      isBlocked = true;
-      blockedFeatureName = 'Internal Chat';
     } else if (pathname.startsWith('/clients') && !features.clients) {
       isBlocked = true;
       blockedFeatureName = 'Client Profiles';

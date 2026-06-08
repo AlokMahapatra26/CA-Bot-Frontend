@@ -1,13 +1,12 @@
 'use client';
 
 import React, { createContext, useContext, useEffect, useState, useRef } from 'react';
-import { Wifi, MessageSquare, Users, FileText, Landmark, Key, Users2, Shield, X, Sliders } from 'lucide-react';
+import { Wifi, Users, FileText, Landmark, Key, Users2, Shield, X, Sliders } from 'lucide-react';
 import { useAuth } from '@/app/components/AuthProvider';
 
 
 export interface FeatureToggles {
   bot: boolean;      // WhatsApp Bot
-  chat: boolean;     // Internal Chat
   clients: boolean;  // Client Profiles
   itr: boolean;      // ITR Filing
   gst: boolean;      // GST Filing
@@ -27,7 +26,6 @@ interface FeatureToggleContextType {
 const FeatureToggleContext = createContext<FeatureToggleContextType>({
   features: {
     bot: true,
-    chat: true,
     clients: true,
     itr: true,
     gst: true,
@@ -43,7 +41,6 @@ const FeatureToggleContext = createContext<FeatureToggleContextType>({
 
 const defaultFeatures: FeatureToggles = {
   bot: true,
-  chat: true,
   clients: true,
   itr: true,
   gst: true,
@@ -113,7 +110,6 @@ export function FeatureToggleProvider({ children }: { children: React.ReactNode 
   const setAllFeatures = (value: boolean) => {
     const updated = {
       bot: value,
-      chat: value,
       clients: value,
       itr: value,
       gst: value,
@@ -129,7 +125,6 @@ export function FeatureToggleProvider({ children }: { children: React.ReactNode 
 
   const featureMetadata = [
     { key: 'bot' as const, label: 'WhatsApp Bot', icon: Wifi, desc: 'Bot controller & stream metrics' },
-    { key: 'chat' as const, label: 'Internal Chat', icon: MessageSquare, desc: 'Staff channels & communication' },
     { key: 'clients' as const, label: 'Client Profiles', icon: Users, desc: 'Account assignments & KYC' },
     { key: 'itr' as const, label: 'ITR Filing', icon: FileText, desc: 'Filing statuses & receipt uploads' },
     { key: 'gst' as const, label: 'GST Filing', icon: Landmark, desc: 'Sales sheet & invoice pipelines' },

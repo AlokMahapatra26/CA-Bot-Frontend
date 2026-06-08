@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useState, useEffect } from 'react';
-import { FileText, Wifi, PanelLeftClose, PanelLeft, Users, Landmark, Key, LogOut, Users2, MessageSquare, LayoutDashboard } from 'lucide-react';
+import { FileText, Wifi, PanelLeftClose, PanelLeft, Users, Landmark, Key, LogOut, Users2, LayoutDashboard } from 'lucide-react';
 import { siteData } from '@/app/site-data';
 import { useAuth } from '@/app/components/AuthProvider';
 import { useFeatureToggles } from '@/app/components/FeatureToggleContext';
@@ -48,10 +48,8 @@ export default function Sidebar() {
   if (isAdmin && (!isMounted || features.bot)) {
     navItems.push({ href: '/bot', label: 'WhatsApp Bot', icon: Wifi });
   }
-  
-  if (!isMounted || features.chat) {
-    navItems.push({ href: '/chat', label: 'Internal Chat', icon: MessageSquare });
-  }
+
+
   if ((isAdmin || isHOD) && (!isMounted || features.clients)) {
     navItems.push({ href: '/clients', label: 'Client Profiles', icon: Users });
   }
