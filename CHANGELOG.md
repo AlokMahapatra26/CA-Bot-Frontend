@@ -2,6 +2,19 @@
 
 All notable changes to the CA-bOt Frontend client dashboard will be documented in this file.
 
+## [1.22.0] - 2026-06-12
+### Added
+- **Direct WhatsApp Document Request Templates**:
+  - Added a "Request Document Template" dropdown to the message modal on both the Client Profiles (`ClientsDashboard.tsx`) and ITR Filings (`ClientDashboard.tsx`) dashboards.
+  - Supported options include: PAN Card, Aadhaar Card, Form 16, Bank Statement, Capital Gains Statement, Property Sale Details, and Other Supporting Documents.
+  - Pre-populates message content dynamically with polite, standardized template requests.
+  - Automatically updates the chatbot state and nullifies/clears the requested document's media URL in the database when the message is successfully sent, ensuring synchronization.
+### Changed
+- **Default Manual Filing Status**:
+  - Updated manually created, status-updated, or imported client ITR filings in `app/actions.ts` to initialize at `AWAITING_BANK_NAME` (instead of `AWAITING_INCOME_SOURCE`) to ensure users go through the bank details collection flow first.
+- **Identity Rejection Bot Flow Reset**:
+  - Updated `rejectDocument` action to set the client's `bot_status` on the `clients` table back to `'REGISTERING_PAN'` or `'REGISTERING_AADHAAR'` when rejecting identity documents, allowing the WhatsApp bot to correctly intercept their reply.
+
 ## [1.21.0] - 2026-06-08
 ### Added
 - **Instant Sidebar Active Tab Transition**:

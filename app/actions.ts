@@ -235,7 +235,10 @@ export async function rejectDocument(
       // Identity documents are on the 'clients' table
       const { error: clientErr } = await serverSupabase
         .from('clients')
-        .update({ [doc.column]: null })
+        .update({ 
+          [doc.column]: null,
+          bot_status: docType === 'PAN' ? 'REGISTERING_PAN' : 'REGISTERING_AADHAAR'
+        })
         .eq('id', clientId);
 
       if (clientErr) {
@@ -538,7 +541,7 @@ export async function importClients(clients: Array<{ full_name: string; phone_nu
         .map(c => ({
           client_id: c.id,
           fy_year: '2025-26',
-          status: 'AWAITING_INCOME_SOURCE',
+          status: 'AWAITING_BANK_NAME',
           filing_status: 'AWAITING_DOCS',
           company_id: companyId
         }));
@@ -617,7 +620,7 @@ export async function updateClientProfile(clientId: string, updates: {
             .insert({
               client_id: clientId,
               fy_year: '2025-26',
-              status: 'AWAITING_INCOME_SOURCE',
+              status: 'AWAITING_BANK_NAME',
               filing_status: 'AWAITING_DOCS',
               company_id: clientData?.company_id || null
             });
@@ -744,7 +747,7 @@ export async function createClientProfile(client: {
         .insert({
           client_id: inserted.id,
           fy_year: '2025-26',
-          status: 'AWAITING_INCOME_SOURCE',
+          status: 'AWAITING_BANK_NAME',
           filing_status: 'AWAITING_DOCS',
           company_id: companyId
         });

@@ -229,9 +229,54 @@ export default function ClientDashboard({ clientsData }: ClientDashboardProps) {
     }
   };
 
+  const handleRequestDocumentState = async (
+    clientId: string,
+    filingId: string | undefined,
+    docType: 'pan' | 'aadhaar' | 'form16' | 'bank_statement' | 'capital_gains' | 'property_docs' | 'other_docs'
+  ) => {
+    try {
+      if (docType === 'pan' || docType === 'aadhaar') {
+        const column = docType === 'pan' ? 'pan_media_url' : 'aadhaar_media_url';
+        const botStatus = docType === 'pan' ? 'REGISTERING_PAN' : 'REGISTERING_AADHAAR';
+        
+        const { error } = await supabase
+          .from('clients')
+          .update({
+            [column]: null,
+            bot_status: botStatus
+          })
+          .eq('id', clientId);
+        if (error) throw new Error(error.message);
+      } else if (filingId) {
+        const mapping = {
+          form16: { column: 'form16_media_url', state: 'AWAITING_FORM16' },
+          bank_statement: { column: 'bank_statement_media_url', state: 'AWAITING_BANK_STATEMENT' },
+          capital_gains: { column: 'capital_gains_media_url', state: 'AWAITING_CAPITAL_GAINS' },
+          property_docs: { column: 'property_docs_media_url', state: 'AWAITING_PROPERTY_DOCS' },
+          other_docs: { column: 'other_docs_media_url', state: 'AWAITING_OTHER_DOCS' }
+        };
+        const doc = mapping[docType];
+        if (doc) {
+          const { error } = await supabase
+            .from('itr_filings')
+            .update({
+              [doc.column]: null,
+              status: doc.state
+            })
+            .eq('id', filingId);
+          if (error) throw new Error(error.message);
+        }
+      }
+      router.refresh();
+    } catch (err: any) {
+      alert(`Error updating bot state: ${err.message}`);
+    }
+  };
+
   const [isPending, startTransition] = useTransition();
   const [query, setQuery] = useState('');
-  const [activeMsgClient, setActiveMsgClient] = useState<{ id: string; name: string; jid: string } | null>(null);
+  const [activeMsgClient, setActiveMsgClient] = useState<{ id: string; name: string; jid: string; filingId?: string } | null>(null);
+  const [selectedDocTemplate, setSelectedDocTemplate] = useState<string>('custom');
   const [customMsgText, setCustomMsgText] = useState('');
   const [activePreviewDoc, setActivePreviewDoc] = useState<{
     url: string;
@@ -644,7 +689,7 @@ export default function ClientDashboard({ clientsData }: ClientDashboardProps) {
                         </>
                       )}
                       <button
-                        onClick={() => setActiveMsgClient({ id: client.id, name, jid: client.whatsapp_jid || '' })}
+                        onClick={() => setActiveMsgClient({ id: client.id, name, jid: client.whatsapp_jid || '', filingId: f?.id })}
                         className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-medium text-[#555] bg-white border border-[#ddd] rounded-lg hover:border-[#aaa] transition-colors"
                       >
                         Message
@@ -720,6 +765,7 @@ export default function ClientDashboard({ clientsData }: ClientDashboardProps) {
                 onClick={() => {
                   setActiveMsgClient(null);
                   setCustomMsgText('');
+                  setSelectedDocTemplate('custom');
                 }}
                 className="text-[#999] hover:text-[#555] text-xs font-semibold"
               >
@@ -727,6 +773,45 @@ export default function ClientDashboard({ clientsData }: ClientDashboardProps) {
               </button>
             </div>
             <div className="p-4 space-y-4">
+              <div className="space-y-1">
+                <label className="text-[11px] font-semibold text-[#555]">Request Document Template</label>
+                <select
+                  value={selectedDocTemplate}
+                  onChange={(e) => {
+                    const template = e.target.value;
+                    setSelectedDocTemplate(template);
+                    
+                    if (template === 'custom') {
+                      setCustomMsgText('');
+                    } else {
+                      const name = activeMsgClient.name;
+                      const templates: Record<string, string> = {
+                        pan: `Dear *${name}*,\n\nPlease upload a clear photo or PDF of your *PAN Card* here on WhatsApp to proceed. Thank you! 🙏`,
+                        aadhaar: `Dear *${name}*,\n\nPlease upload a clear photo or PDF of your *Aadhaar Card* here on WhatsApp to proceed. Thank you! 🙏`,
+                        form16: `Dear *${name}*,\n\nPlease upload your *Form 16* (PDF or photo) here on WhatsApp to proceed with your ITR filing. Thank you! 🙏`,
+                        bank_statement: `Dear *${name}*,\n\nPlease upload your *Bank Statement* (PDF or photo) here on WhatsApp to proceed with your ITR filing. Thank you! 🙏`,
+                        capital_gains: `Dear *${name}*,\n\nPlease upload your *Capital Gains Statement* (PDF or photo) here on WhatsApp to proceed with your ITR filing. Thank you! 🙏`,
+                        property_docs: `Dear *${name}*,\n\nPlease upload your *Property Sale/Purchase details* (PDF or photo) here on WhatsApp to proceed with your ITR filing. Thank you! 🙏`,
+                        other_docs: `Dear *${name}*,\n\nPlease upload your *other supporting tax documents* (PDF or photo) here on WhatsApp to proceed with your ITR filing. Thank you! 🙏`
+                      };
+                      setCustomMsgText(templates[template] || '');
+                    }
+                  }}
+                  className="w-full px-2.5 py-1.5 text-[12px] bg-white border border-[#ddd] rounded-lg focus:outline-none focus:border-[#999] cursor-pointer"
+                >
+                  <option value="custom">-- Custom Message --</option>
+                  <option value="pan">PAN Card</option>
+                  <option value="aadhaar">Aadhaar Card</option>
+                  <option value="form16">Form 16</option>
+                  <option value="bank_statement">Bank Statement</option>
+                  <option value="capital_gains">Capital Gains Statement</option>
+                  <option value="property_docs">Property Sale Details</option>
+                  <option value="other_docs">Other Supporting Documents</option>
+                </select>
+              </div>
+
+
+
               <div className="space-y-1">
                 <label className="text-[11px] font-semibold text-[#555]">Message Content</label>
                 <textarea
@@ -742,6 +827,7 @@ export default function ClientDashboard({ clientsData }: ClientDashboardProps) {
                   onClick={() => {
                     setActiveMsgClient(null);
                     setCustomMsgText('');
+                    setSelectedDocTemplate('custom');
                   }}
                   className="px-3 py-1.5 text-[11px] font-medium text-[#555] bg-white border border-[#ddd] rounded-lg hover:border-[#aaa]"
                 >
@@ -758,9 +844,13 @@ export default function ClientDashboard({ clientsData }: ClientDashboardProps) {
                         body: JSON.stringify({ jid: activeMsgClient.jid, text: customMsgText }),
                       });
                       if (res.ok) {
+                        if (selectedDocTemplate !== 'custom') {
+                          await handleRequestDocumentState(activeMsgClient.id, activeMsgClient.filingId, selectedDocTemplate as any);
+                        }
                         alert('Message sent successfully!');
                         setActiveMsgClient(null);
                         setCustomMsgText('');
+                        setSelectedDocTemplate('custom');
                       } else {
                         alert('Failed to send message.');
                       }
