@@ -2,6 +2,15 @@
 
 All notable changes to the CA-bOt Frontend client dashboard will be documented in this file.
 
+## [1.24.0] - 2026-06-13
+### Changed
+- **Direct Deletion Actions**:
+  - Simplified `DeleteButton.tsx` and `DscDeleteButton.tsx` to remove the high-risk "Delete Entire Client Data" options.
+  - Clicking the trash button now directly triggers the module-specific document/DSC deletion flow without showing a dropdown menu.
+- **Reminder Indicator Styling**:
+  - Removed pulsing status dots from the DSC Dashboard toolbar buttons ("Reminder Settings" and "Expiry Reminders").
+  - Replaced them with simple, clean static gray dots positioned directly after the button text.
+
 ## [1.23.0] - 2026-06-13
 ### Added
 - **DSC Expiry Reminders**:
