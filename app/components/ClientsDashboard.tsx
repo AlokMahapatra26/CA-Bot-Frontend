@@ -80,13 +80,20 @@ export default function ClientsDashboard({ clientsData }: ClientsDashboardProps)
         .select('id, email, full_name, role, department');
       
       // HODs only see and assign staff belonging to their department
-      if (profile?.role === 'hod' && profile.department && profile.department !== 'ALL') {
-        q = q.eq('department', profile.department);
-      }
-
       const { data } = await q.order('full_name', { ascending: true });
       if (data) {
-        setStaff(data);
+        if (profile?.role === 'hod' && profile.department && profile.department !== 'ALL') {
+          const hodDepts = profile.department.split(',').map((d: string) => d.trim());
+          const filtered = data.filter((s: any) => {
+            if (!s.department) return false;
+            if (s.department === 'ALL') return true;
+            const staffDepts = s.department.split(',').map((d: string) => d.trim());
+            return staffDepts.some((sd: string) => hodDepts.includes(sd));
+          });
+          setStaff(filtered);
+        } else {
+          setStaff(data);
+        }
       }
     }
     if (profile) {
@@ -933,7 +940,7 @@ export default function ClientsDashboard({ clientsData }: ClientsDashboardProps)
                         Message
                       </button>
                       {profile?.role === 'admin' && (
-                        <DeleteButton clientId={client.id} />
+                        <DeleteButton clientId={client.id} clientName={name} />
                       )}
                     </div>
                   </td>

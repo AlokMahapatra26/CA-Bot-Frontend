@@ -61,17 +61,17 @@ export default function Sidebar() {
   }
   
   // Show ITR Filing if admin, ITR department, or ALL department
-  if ((isAdmin || userDept === 'ITR' || userDept === 'ALL') && (!isMounted || features.itr)) {
+  if ((isAdmin || userDept === 'ALL' || userDept.split(',').map(d => d.trim()).includes('ITR')) && (!isMounted || features.itr)) {
     navItems.push({ href: '/itr', label: 'ITR Filing', icon: FileText });
   }
   
   // Show GST Filing if admin, GST department, or ALL department
-  if ((isAdmin || userDept === 'GST' || userDept === 'ALL') && (!isMounted || features.gst)) {
+  if ((isAdmin || userDept === 'ALL' || userDept.split(',').map(d => d.trim()).includes('GST')) && (!isMounted || features.gst)) {
     navItems.push({ href: '/gst', label: 'GST Filing', icon: Landmark });
   }
   
   // Show DSC Management if admin, DSC department, or ALL department
-  if ((isAdmin || userDept === 'DSC' || userDept === 'ALL') && (!isMounted || features.dsc)) {
+  if ((isAdmin || userDept === 'ALL' || userDept.split(',').map(d => d.trim()).includes('DSC')) && (!isMounted || features.dsc)) {
     navItems.push({ href: '/dsc', label: 'DSC Management', icon: Key });
   }
   

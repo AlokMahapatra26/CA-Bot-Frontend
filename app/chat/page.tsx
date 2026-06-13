@@ -84,13 +84,16 @@ export default function ChatPage() {
     channels.push({ id: 'dept_gst', name: 'GST Dept', icon: Briefcase, description: 'Goods & Services Tax department', isPrivate: false });
     channels.push({ id: 'dept_dsc', name: 'DSC Dept', icon: Briefcase, description: 'Digital Signature Certificate department', isPrivate: false });
   } else if (profile?.department) {
-    if (profile.department !== 'ALL') {
-      channels.push({ 
-        id: `dept_${profile.department.toLowerCase()}`, 
-        name: `${profile.department} Dept`, 
-        icon: Briefcase,
-        description: `${profile.department} team communication`,
-        isPrivate: false
+    if (profile.department === 'ALL') {
+      channels.push({ id: 'dept_itr', name: 'ITR Dept', icon: Briefcase, description: 'Income Tax Return department', isPrivate: false });
+      channels.push({ id: 'dept_gst', name: 'GST Dept', icon: Briefcase, description: 'Goods & Services Tax department', isPrivate: false });
+      channels.push({ id: 'dept_dsc', name: 'DSC Dept', icon: Briefcase, description: 'Digital Signature Certificate department', isPrivate: false });
+    } else {
+      const depts = profile.department.split(',').map((d: string) => d.trim().toUpperCase());
+      depts.forEach((d: string) => {
+        if (d === 'ITR') channels.push({ id: 'dept_itr', name: 'ITR Dept', icon: Briefcase, description: 'Income Tax Return department', isPrivate: false });
+        if (d === 'GST') channels.push({ id: 'dept_gst', name: 'GST Dept', icon: Briefcase, description: 'Goods & Services Tax department', isPrivate: false });
+        if (d === 'DSC') channels.push({ id: 'dept_dsc', name: 'DSC Dept', icon: Briefcase, description: 'Digital Signature Certificate department', isPrivate: false });
       });
     }
   }
@@ -271,11 +274,11 @@ export default function ChatPage() {
     } else if (activeChannel === 'management') {
       channelMembers = profiles.filter(p => p.role === 'admin' || p.role === 'hod');
     } else if (activeChannel === 'dept_itr') {
-      channelMembers = profiles.filter(p => p.role === 'admin' || p.department === 'ITR');
+      channelMembers = profiles.filter(p => p.role === 'admin' || p.department === 'ALL' || (p.department && p.department.split(',').map((d: any) => d.trim()).includes('ITR')));
     } else if (activeChannel === 'dept_gst') {
-      channelMembers = profiles.filter(p => p.role === 'admin' || p.department === 'GST');
+      channelMembers = profiles.filter(p => p.role === 'admin' || p.department === 'ALL' || (p.department && p.department.split(',').map((d: any) => d.trim()).includes('GST')));
     } else if (activeChannel === 'dept_dsc') {
-      channelMembers = profiles.filter(p => p.role === 'admin' || p.department === 'DSC');
+      channelMembers = profiles.filter(p => p.role === 'admin' || p.department === 'ALL' || (p.department && p.department.split(',').map((d: any) => d.trim()).includes('DSC')));
     } else if (activeChannel.startsWith('dm_')) {
       const parts = activeChannel.split('_');
       channelMembers = profiles.filter(p => p.id === parts[1] || p.id === parts[2]);

@@ -10,7 +10,7 @@ interface TeamProfile {
   email: string;
   full_name: string;
   role: 'admin' | 'hod' | 'employee';
-  department: 'ITR' | 'GST' | 'DSC' | 'ALL';
+  department: string;
   phone?: string;
   date_of_birth?: string;
   created_at: string;
@@ -26,7 +26,9 @@ export default function TeamPage() {
   const [createPassword, setCreatePassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [createRole, setCreateRole] = useState<'admin' | 'hod' | 'employee'>('employee');
-  const [createDepartment, setCreateDepartment] = useState<'ITR' | 'GST' | 'DSC' | 'ALL'>('ITR');
+  const [createItrChecked, setCreateItrChecked] = useState(true);
+  const [createGstChecked, setCreateGstChecked] = useState(false);
+  const [createDscChecked, setCreateDscChecked] = useState(false);
   const [createName, setCreateName] = useState('');
   const [createPhone, setCreatePhone] = useState('');
   const [createDOB, setCreateDOB] = useState('');
@@ -44,6 +46,10 @@ export default function TeamPage() {
   const [editName, setEditName] = useState('');
   const [editPhone, setEditPhone] = useState('');
   const [editDOB, setEditDOB] = useState('');
+  const [editRole, setEditRole] = useState<'admin' | 'hod' | 'employee'>('employee');
+  const [editItrChecked, setEditItrChecked] = useState(false);
+  const [editGstChecked, setEditGstChecked] = useState(false);
+  const [editDscChecked, setEditDscChecked] = useState(false);
   const [editLoading, setEditLoading] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
 
@@ -94,6 +100,16 @@ export default function TeamPage() {
     );
   }
 
+  const getDeptValue = (itr: boolean, gst: boolean, dsc: boolean) => {
+    const selected = [];
+    if (itr) selected.push('ITR');
+    if (gst) selected.push('GST');
+    if (dsc) selected.push('DSC');
+    if (selected.length === 3) return 'ALL';
+    if (selected.length === 0) return 'ITR'; // Fallback default
+    return selected.join(', ');
+  };
+
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
     setCreateError(null);
@@ -103,8 +119,8 @@ export default function TeamPage() {
     try {
       const { createTeamMember } = await import('@/app/actions');
       
-      // Admins are always ALL department, otherwise use selected
-      const finalDept = createRole === 'admin' ? 'ALL' : createDepartment;
+      // Admins are always ALL department, otherwise use selected checkboxes
+      const finalDept = createRole === 'admin' ? 'ALL' : getDeptValue(createItrChecked, createGstChecked, createDscChecked);
 
       const result = await createTeamMember({
         email: createEmail.trim(),
@@ -127,7 +143,9 @@ export default function TeamPage() {
         setCreatePhone('');
         setCreateDOB('');
         setCreateRole('employee');
-        setCreateDepartment('ITR');
+        setCreateItrChecked(true);
+        setCreateGstChecked(false);
+        setCreateDscChecked(false);
         setShowCreateModal(false);
         fetchTeam();
       }
@@ -143,6 +161,15 @@ export default function TeamPage() {
     setEditName(member.full_name || '');
     setEditPhone(member.phone || '');
     setEditDOB(member.date_of_birth || '');
+    setEditRole(member.role);
+    
+    // Parse current department(s)
+    const depts = member.department ? member.department.split(',').map(d => d.trim().toUpperCase()) : [];
+    const hasAll = member.department === 'ALL';
+    setEditItrChecked(hasAll || depts.includes('ITR'));
+    setEditGstChecked(hasAll || depts.includes('GST'));
+    setEditDscChecked(hasAll || depts.includes('DSC'));
+    
     setEditError(null);
     setShowEditModal(true);
   };
@@ -154,21 +181,33 @@ export default function TeamPage() {
     setEditLoading(true);
 
     try {
-      const { updateTeamMemberDetails } = await import('@/app/actions');
-      const result = await updateTeamMemberDetails({
+      const { updateTeamMemberDetails, updateTeamMemberRoleAndDepartment } = await import('@/app/actions');
+      
+      const detailsResult = await updateTeamMemberDetails({
         userId: editingMember.id,
         fullName: editName.trim(),
         phone: editPhone.trim() || undefined,
         dateOfBirth: editDOB.trim() || undefined,
       });
 
-      if (!result.success) {
-        setEditError(result.error || 'Failed to update member details.');
-      } else {
-        setShowEditModal(false);
-        setEditingMember(null);
-        fetchTeam();
+      if (!detailsResult.success) {
+        setEditError(detailsResult.error || 'Failed to update member details.');
+        setEditLoading(false);
+        return;
       }
+
+      const finalDept = editRole === 'admin' ? 'ALL' : getDeptValue(editItrChecked, editGstChecked, editDscChecked);
+      const roleDeptResult = await updateTeamMemberRoleAndDepartment(editingMember.id, editRole, finalDept);
+
+      if (!roleDeptResult.success) {
+        setEditError(roleDeptResult.error || 'Failed to update member role and department.');
+        setEditLoading(false);
+        return;
+      }
+
+      setShowEditModal(false);
+      setEditingMember(null);
+      fetchTeam();
     } catch (err: any) {
       setEditError(err.message || 'An error occurred.');
     } finally {
@@ -179,7 +218,7 @@ export default function TeamPage() {
   const handleUpdateRoleAndDepartment = async (
     userId: string, 
     newRole: 'admin' | 'hod' | 'employee',
-    newDepartment: 'ITR' | 'GST' | 'DSC' | 'ALL'
+    newDepartment: string
   ) => {
     setActionLoading(userId);
     try {
@@ -315,7 +354,7 @@ export default function TeamPage() {
 
     if (activeTab === 'ALL') return true;
     if (activeTab === 'MANAGEMENT') return member.role === 'admin' || member.role === 'hod' || member.department === 'ALL';
-    return member.department === activeTab;
+    return member.department === 'ALL' || (member.department && member.department.split(',').map(d => d.trim()).includes(activeTab));
   });
 
   return (
@@ -375,7 +414,7 @@ export default function TeamPage() {
                   ? team.filter(m => m.role === 'admin' || m.role === 'hod' || m.department === 'ALL').length
                   : tab.id === 'BIRTHDAYS'
                     ? team.filter(m => isUpcomingBirthday(m.date_of_birth)).length
-                    : team.filter(m => m.department === tab.id).length}
+                    : team.filter(m => m.department === 'ALL' || (m.department && m.department.split(',').map(d => d.trim()).includes(tab.id))).length}
             </span>
           </button>
         ))}
@@ -476,56 +515,41 @@ export default function TeamPage() {
                   </td>
                   {activeTab !== 'BIRTHDAYS' && (
                     <td className="px-4 py-3">
-                      {member.id === profile?.id ? (
+                      <div className="flex flex-col gap-1.5">
                         <div className="flex items-center gap-1.5">
                           <span className={`inline-flex items-center gap-1 text-[10.5px] px-2 py-0.5 rounded font-semibold border ${roleBadge(member.role)}`}>
-                            <Shield className="w-3 h-3" />
-                            <span>Admin (You)</span>
+                            {member.role === 'admin' && <Shield className="w-3.5 h-3.5" />}
+                            <span>{member.role === 'admin' ? 'Admin' : member.role === 'hod' ? 'HOD' : 'Employee'}</span>
                           </span>
-                          <span className="text-[11.5px] font-bold text-slate-400 font-mono">ALL</span>
-                        </div>
-                      ) : (
-                        <div className="flex items-center gap-2">
-                          {/* Role Selector */}
-                          <select
-                            value={member.role}
-                            disabled={actionLoading === member.id}
-                            onChange={(e) => {
-                              const newRole = e.target.value as any;
-                              if (window.confirm(`Are you sure you want to change this member's role to ${newRole.toUpperCase()}?`)) {
-                                handleUpdateRoleAndDepartment(member.id, newRole, member.department);
-                              }
-                            }}
-                            className="px-2 py-1 text-[11px] bg-white border border-[#ddd] rounded-md focus:outline-none focus:border-[#999] transition-colors cursor-pointer font-medium text-slate-700"
-                          >
-                            <option value="admin">Admin</option>
-                            <option value="hod">HOD</option>
-                            <option value="employee">Employee</option>
-                          </select>
-
-                          {/* Department Selector (Disabled for admins) */}
-                          {member.role !== 'admin' ? (
-                            <select
-                              value={member.department || 'ITR'}
-                              disabled={actionLoading === member.id}
-                              onChange={(e) => {
-                                const newDept = e.target.value as any;
-                                if (window.confirm(`Are you sure you want to reassign this member to the ${newDept} department?`)) {
-                                  handleUpdateRoleAndDepartment(member.id, member.role, newDept);
-                                }
-                              }}
-                              className="px-2 py-1 text-[11px] bg-white border border-[#ddd] rounded-md focus:outline-none focus:border-[#999] transition-colors cursor-pointer font-medium text-slate-700"
-                            >
-                              <option value="ITR">ITR</option>
-                              <option value="GST">GST</option>
-                              <option value="DSC">DSC</option>
-                              <option value="ALL">ALL</option>
-                            </select>
-                          ) : (
-                            <span className="text-[11.5px] font-bold text-slate-400 font-mono px-1">ALL</span>
+                          {member.id === profile?.id && (
+                            <span className="text-[10px] text-slate-400 font-bold bg-slate-50 px-1 border rounded">YOU</span>
                           )}
                         </div>
-                      )}
+                        {(() => {
+                          const dept = member.department || 'ITR';
+                          if (dept === 'ALL') {
+                            return <span className="inline-flex self-start px-1.5 py-0.5 text-[9px] font-bold bg-slate-100 text-slate-750 border border-slate-200 rounded uppercase tracking-wider">ALL Depts</span>;
+                          }
+                          return (
+                            <div className="flex items-center gap-1 flex-wrap">
+                              {dept.split(',').map((d) => {
+                                const cleaned = d.trim();
+                                if (!cleaned) return null;
+                                const colors: Record<string, string> = {
+                                  ITR: 'bg-blue-50 text-blue-700 border-blue-200',
+                                  GST: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+                                  DSC: 'bg-indigo-50 text-indigo-700 border-indigo-200',
+                                };
+                                return (
+                                  <span key={cleaned} className={`px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider rounded border ${colors[cleaned] || 'bg-slate-50 text-slate-600 border-slate-200'}`}>
+                                    {cleaned}
+                                  </span>
+                                );
+                              })}
+                            </div>
+                          );
+                        })()}
+                      </div>
                     </td>
                   )}
                   <td className="px-4 py-3 text-[#666] font-medium">
@@ -760,18 +784,37 @@ export default function TeamPage() {
               {createRole !== 'admin' && (
                 <div className="space-y-1.5">
                   <label className="text-[10px] font-semibold text-[#555] uppercase tracking-wider flex items-center gap-1">
-                    <Briefcase className="w-3 h-3 text-[#555]" /> Assigned Department
+                    <Briefcase className="w-3 h-3 text-[#555]" /> Assigned Departments
                   </label>
-                  <select
-                    value={createDepartment}
-                    onChange={(e) => setCreateDepartment(e.target.value as any)}
-                    className="w-full px-3 py-2 text-[12px] bg-[#fafafa] border border-[#ddd] rounded-lg focus:outline-none focus:border-[#999] focus:bg-white transition-all cursor-pointer font-medium text-slate-700"
-                  >
-                    <option value="ITR">ITR (Income Tax Return)</option>
-                    <option value="GST">GST (Goods & Services Tax)</option>
-                    <option value="DSC">DSC (Digital Signature Certificate)</option>
-                    <option value="ALL">ALL Departments</option>
-                  </select>
+                  <div className="flex flex-col gap-2 p-2 border border-[#ddd] rounded-lg bg-[#fafafa]">
+                    <label className="flex items-center gap-2 text-[12px] font-medium text-slate-750 cursor-pointer select-none">
+                      <input
+                        type="checkbox"
+                        checked={createItrChecked}
+                        onChange={(e) => setCreateItrChecked(e.target.checked)}
+                        className="rounded text-blue-600 focus:ring-blue-500 w-3.5 h-3.5"
+                      />
+                      <span>ITR (Income Tax Return)</span>
+                    </label>
+                    <label className="flex items-center gap-2 text-[12px] font-medium text-slate-750 cursor-pointer select-none">
+                      <input
+                        type="checkbox"
+                        checked={createGstChecked}
+                        onChange={(e) => setCreateGstChecked(e.target.checked)}
+                        className="rounded text-blue-600 focus:ring-blue-500 w-3.5 h-3.5"
+                      />
+                      <span>GST (Goods & Services Tax)</span>
+                    </label>
+                    <label className="flex items-center gap-2 text-[12px] font-medium text-slate-750 cursor-pointer select-none">
+                      <input
+                        type="checkbox"
+                        checked={createDscChecked}
+                        onChange={(e) => setCreateDscChecked(e.target.checked)}
+                        className="rounded text-blue-600 focus:ring-blue-500 w-3.5 h-3.5"
+                      />
+                      <span>DSC (Digital Signature Certificate)</span>
+                    </label>
+                  </div>
                 </div>
               )}
             </div>
@@ -881,6 +924,60 @@ export default function TeamPage() {
                   className="w-full px-3 py-2 text-[12px] bg-[#fafafa] border border-[#ddd] rounded-lg focus:outline-none focus:border-[#999] focus:bg-white transition-all text-slate-700 font-mono"
                 />
               </div>
+
+              {/* Role Selector */}
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-semibold text-[#555] uppercase tracking-wider">
+                  Access Level Tier
+                </label>
+                <select
+                  value={editRole}
+                  onChange={(e) => setEditRole(e.target.value as any)}
+                  className="w-full px-3 py-2 text-[12px] bg-[#fafafa] border border-[#ddd] rounded-lg focus:outline-none focus:border-[#999] focus:bg-white transition-all cursor-pointer font-medium text-slate-700"
+                >
+                  <option value="employee">Employee (Restricted Client Access)</option>
+                  <option value="hod">HOD (Full View, No Role Controls)</option>
+                  <option value="admin">Admin (Full Access & Controls)</option>
+                </select>
+              </div>
+
+              {/* Department (Only visible if not Admin) */}
+              {editRole !== 'admin' && (
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-semibold text-[#555] uppercase tracking-wider flex items-center gap-1">
+                    <Briefcase className="w-3 h-3 text-[#555]" /> Assigned Departments
+                  </label>
+                  <div className="flex flex-col gap-2 p-2 border border-[#ddd] rounded-lg bg-[#fafafa]">
+                    <label className="flex items-center gap-2 text-[12px] font-medium text-slate-750 cursor-pointer select-none">
+                      <input
+                        type="checkbox"
+                        checked={editItrChecked}
+                        onChange={(e) => setEditItrChecked(e.target.checked)}
+                        className="rounded text-blue-600 focus:ring-blue-500 w-3.5 h-3.5"
+                      />
+                      <span>ITR (Income Tax Return)</span>
+                    </label>
+                    <label className="flex items-center gap-2 text-[12px] font-medium text-slate-750 cursor-pointer select-none">
+                      <input
+                        type="checkbox"
+                        checked={editGstChecked}
+                        onChange={(e) => setEditGstChecked(e.target.checked)}
+                        className="rounded text-blue-600 focus:ring-blue-500 w-3.5 h-3.5"
+                      />
+                      <span>GST (Goods & Services Tax)</span>
+                    </label>
+                    <label className="flex items-center gap-2 text-[12px] font-medium text-slate-750 cursor-pointer select-none">
+                      <input
+                        type="checkbox"
+                        checked={editDscChecked}
+                        onChange={(e) => setEditDscChecked(e.target.checked)}
+                        className="rounded text-blue-600 focus:ring-blue-500 w-3.5 h-3.5"
+                      />
+                      <span>DSC (Digital Signature Certificate)</span>
+                    </label>
+                  </div>
+                </div>
+              )}
             </div>
 
             <div className="bg-[#fafafa] px-4 py-3 border-t border-[#e0e0e0] flex items-center justify-end gap-2 shrink-0">

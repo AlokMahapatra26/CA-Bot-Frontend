@@ -295,12 +295,21 @@ export default function DscDashboard({ clientsData }: DscDashboardProps) {
         .select('id, email, full_name, role, department')
         .eq('company_id', profile?.company_id);
 
-      if (profile?.role === 'hod' && profile.department && profile.department !== 'ALL') {
-        q = q.eq('department', profile.department);
-      }
-
       const { data } = await q.order('full_name', { ascending: true });
-      if (data) setStaff(data);
+      if (data) {
+        if (profile?.role === 'hod' && profile.department && profile.department !== 'ALL') {
+          const hodDepts = profile.department.split(',').map((d: string) => d.trim());
+          const filtered = data.filter((s: any) => {
+            if (!s.department) return false;
+            if (s.department === 'ALL') return true;
+            const staffDepts = s.department.split(',').map((d: string) => d.trim());
+            return staffDepts.some((sd: string) => hodDepts.includes(sd));
+          });
+          setStaff(filtered);
+        } else {
+          setStaff(data);
+        }
+      }
     }
     if (profile) {
       fetchStaff();
@@ -489,36 +498,40 @@ export default function DscDashboard({ clientsData }: DscDashboardProps) {
           <span className="text-[11px] text-[#999]">{filteredClients.length} records</span>
         </div>
         <div className="flex items-center gap-2">
-          <button
-            onClick={() => setShowBroadcastModal(true)}
-            className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition-colors cursor-pointer"
-          >
-            <Megaphone className="w-3.5 h-3.5" /> Broadcast Message
-          </button>
-          <button
-            onClick={() => {
-              fetchReminderStatus();
-              setShowReminderModal(true);
-            }}
-            className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-bold text-[#555] bg-white border border-[#ddd] rounded-lg hover:border-[#aaa] transition-colors cursor-pointer"
-            title="Auto reminder settings"
-          >
-            <Bell className="w-3.5 h-3.5 text-slate-500" />
-            <span>Reminder Settings</span>
-            <span className="w-1.5 h-1.5 rounded-full bg-slate-300" />
-          </button>
-          <button
-            onClick={() => {
-              fetchExpiryReminderStatus();
-              setShowExpiryReminderModal(true);
-            }}
-            className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-bold text-[#555] bg-white border border-[#ddd] rounded-lg hover:border-[#aaa] transition-colors cursor-pointer"
-            title="DSC Expiry reminder settings"
-          >
-            <BellRing className="w-3.5 h-3.5 text-slate-500" />
-            <span>Expiry Reminders</span>
-            <span className="w-1.5 h-1.5 rounded-full bg-slate-300" />
-          </button>
+          {(profile?.role === 'admin' || profile?.role === 'hod') && (
+            <>
+              <button
+                onClick={() => setShowBroadcastModal(true)}
+                className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition-colors cursor-pointer"
+              >
+                <Megaphone className="w-3.5 h-3.5" /> Broadcast Message
+              </button>
+              <button
+                onClick={() => {
+                  fetchReminderStatus();
+                  setShowReminderModal(true);
+                }}
+                className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-bold text-[#555] bg-white border border-[#ddd] rounded-lg hover:border-[#aaa] transition-colors cursor-pointer"
+                title="Auto reminder settings"
+              >
+                <Bell className="w-3.5 h-3.5 text-slate-500" />
+                <span>Reminder Settings</span>
+                <span className="w-1.5 h-1.5 rounded-full bg-slate-300" />
+              </button>
+              <button
+                onClick={() => {
+                  fetchExpiryReminderStatus();
+                  setShowExpiryReminderModal(true);
+                }}
+                className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-bold text-[#555] bg-white border border-[#ddd] rounded-lg hover:border-[#aaa] transition-colors cursor-pointer"
+                title="DSC Expiry reminder settings"
+              >
+                <BellRing className="w-3.5 h-3.5 text-slate-500" />
+                <span>Expiry Reminders</span>
+                <span className="w-1.5 h-1.5 rounded-full bg-slate-300" />
+              </button>
+            </>
+          )}
           <button
             onClick={exportCSV}
             className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-medium text-[#555] bg-white border border-[#ddd] rounded-lg hover:border-[#aaa] transition-colors cursor-pointer"
@@ -595,7 +608,7 @@ export default function DscDashboard({ clientsData }: DscDashboardProps) {
               <option value="ALL">All Staff</option>
               <option value="UNASSIGNED">Unassigned</option>
               {staff
-                .filter((s) => s.department === 'DSC' || s.department === 'ALL')
+                .filter((s) => s.department === 'ALL' || (s.department && s.department.split(',').map((d: string) => d.trim()).includes('DSC')))
                 .map((s) => (
                   <option key={s.id} value={s.id}>
                     {s.full_name || s.email.split('@')[0]}
@@ -796,7 +809,7 @@ export default function DscDashboard({ clientsData }: DscDashboardProps) {
                       >
                         <option value="">Unassigned</option>
                         {staff
-                          .filter((s) => s.department === 'DSC' || s.department === 'ALL')
+                          .filter((s) => s.department === 'ALL' || (s.department && s.department.split(',').map((d: string) => d.trim()).includes('DSC')))
                           .map((s) => (
                             <option key={s.id} value={s.id}>
                               {s.full_name || s.email.split('@')[0]}
@@ -855,7 +868,7 @@ export default function DscDashboard({ clientsData }: DscDashboardProps) {
       </div>
 
       {/* Footer / Pagination — thin strip */}
-      <div className="flex items-center justify-between px-4 py-2.5 border-t border-[#e0e0e0] bg-[#fafafa] text-[11px] font-semibold text-[#555] select-none shrink-0">
+      <div className="h-[38px] bg-[#fafafa] border-t border-[#e0e0e0] px-4 flex items-center justify-between text-[11px] font-semibold text-[#555] select-none shrink-0">
         <div className="flex items-center gap-1.5">
           <span>Rows per page:</span>
           <select

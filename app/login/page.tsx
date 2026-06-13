@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { createSupabaseBrowser } from '@/lib/supabase-browser';
 import { FileText, Lock, Mail, Eye, EyeOff, UserPlus, LogIn } from 'lucide-react';
@@ -8,6 +8,7 @@ import { FileText, Lock, Mail, Eye, EyeOff, UserPlus, LogIn } from 'lucide-react
 export default function LoginPage() {
   const router = useRouter();
   const [mode, setMode] = useState<'login' | 'signup'>('login');
+  const [ctrlAPressCount, setCtrlAPressCount] = useState(0);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
@@ -15,6 +16,17 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [signupSuccess, setSignupSuccess] = useState(false);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'a') {
+        e.preventDefault();
+        setCtrlAPressCount(prev => prev + 1);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -109,90 +121,83 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex w-full bg-white">
+    <div className="min-h-screen flex w-full bg-white font-sans antialiased">
       {/* Left Panel: Corporate Imagery (Hidden on Mobile) */}
-      <div className="hidden lg:flex relative w-1/2 bg-[#050f24] items-center justify-center overflow-hidden">
+      <div className="hidden lg:flex relative w-1/2 bg-[#090b11] items-center justify-center overflow-hidden">
         <div className="absolute inset-0 z-0">
           <img 
             src="/login-bg.png" 
             alt="Corporate Environment" 
-            className="w-full h-full object-cover opacity-60 mix-blend-luminosity"
+            className="w-full h-full object-cover opacity-20 mix-blend-luminosity"
           />
-          <div className="absolute inset-0 bg-gradient-to-t from-[#050f24] via-[#0a192f]/80 to-transparent" />
-        </div>
-        <div className="relative z-10 p-16 text-white max-w-2xl w-full">
-          <div className="inline-flex items-center justify-center w-14 h-14 bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl mb-8 shadow-2xl">
-            <FileText className="w-7 h-7 text-white" />
-          </div>
-          <h2 className="text-[40px] leading-[1.1] font-bold tracking-tight mb-6">
-            Elevate your practice with CA-BOT.
-          </h2>
-          <p className="text-lg text-blue-100/70 leading-relaxed font-light max-w-md">
-            The enterprise-grade platform for modern firms. Manage clients, automate complex filings, and scale your operations securely.
-          </p>
+          <div className="absolute inset-0 bg-gradient-to-t from-[#090b11] via-[#090b11]/90 to-transparent" />
         </div>
       </div>
 
       {/* Right Panel: Login Form */}
       <div className="flex-1 flex flex-col justify-center px-6 py-12 lg:px-16 xl:px-24">
-        <div className="mx-auto w-full max-w-sm">
+        <div className="mx-auto w-full max-w-[340px]">
           {/* Mobile Branding */}
-          <div className="lg:hidden text-center mb-10">
-            <div className="inline-flex items-center justify-center w-12 h-12 bg-[#0f172a] rounded-xl mb-4 shadow-md">
-              <FileText className="w-6 h-6 text-white" />
+          <div className="lg:hidden text-center mb-8">
+            <div className="inline-flex items-center justify-center w-10 h-10 bg-[#0f172a] rounded-lg mb-3 shadow-sm">
+              <FileText className="w-5 h-5 text-white" />
             </div>
-            <h1 className="text-2xl font-bold text-[#0f172a] tracking-tight">CA-BOT</h1>
+            <h1 className="text-xl font-bold text-[#0f172a] tracking-tight">CA-BOT</h1>
           </div>
           
-          <div className="mb-8">
-            <h1 className="text-3xl font-bold text-[#0f172a] tracking-tight mb-2">
-              {mode === 'login' ? 'Welcome back' : 'Create an account'}
+          <div className="mb-6 text-center lg:text-left">
+            <h1 className="text-xl font-bold text-slate-900 tracking-tight mb-1.5">
+              {mode === 'login' ? 'Sign In' : 'Register Account'}
             </h1>
-            <p className="text-[14px] text-[#475569]">
-              {mode === 'login' ? 'Enter your credentials to access your firm.' : 'Register your firm and start automating today.'}
+            <p className="text-[12px] text-slate-500">
+              {mode === 'login' ? 'Enter credentials to access your firm workspace.' : 'Create your secure practice workspace.'}
             </p>
           </div>
 
           {/* Mode Tabs */}
-          <div className="flex bg-[#f1f5f9] p-1 rounded-xl mb-8">
-            <button
-              onClick={() => { setMode('login'); setError(null); }}
-              className={`flex-1 py-2 text-[12px] font-bold rounded-lg transition-all cursor-pointer flex items-center justify-center gap-2 ${
-                mode === 'login' 
-                  ? 'bg-white text-[#0f172a] shadow-sm' 
-                  : 'text-[#64748b] hover:text-[#334155]'
-              }`}
-            >
-              <LogIn className="w-4 h-4" /> Sign In
-            </button>
-            <button
-              onClick={() => { setMode('signup'); setError(null); }}
-              className={`flex-1 py-2 text-[12px] font-bold rounded-lg transition-all cursor-pointer flex items-center justify-center gap-2 ${
-                mode === 'signup' 
-                  ? 'bg-white text-[#0f172a] shadow-sm' 
-                  : 'text-[#64748b] hover:text-[#334155]'
-              }`}
-            >
-              <UserPlus className="w-4 h-4" /> Sign Up
-            </button>
-          </div>
+          {ctrlAPressCount >= 5 && (
+            <div className="flex bg-slate-100 p-0.5 rounded-lg mb-6 border border-slate-200">
+              <button
+                type="button"
+                onClick={() => { setMode('login'); setError(null); }}
+                className={`flex-1 py-1.5 text-[11px] font-semibold rounded-md transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+                  mode === 'login' 
+                    ? 'bg-white text-slate-900 shadow-sm border border-slate-200/50' 
+                    : 'text-slate-500 hover:text-slate-900'
+                }`}
+              >
+                <LogIn className="w-3.5 h-3.5" /> Sign In
+              </button>
+              <button
+                type="button"
+                onClick={() => { setMode('signup'); setError(null); }}
+                className={`flex-1 py-1.5 text-[11px] font-semibold rounded-md transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+                  mode === 'signup' 
+                    ? 'bg-white text-slate-900 shadow-sm border border-slate-200/50' 
+                    : 'text-slate-500 hover:text-slate-900'
+                }`}
+              >
+                <UserPlus className="w-3.5 h-3.5" /> Sign Up
+              </button>
+            </div>
+          )}
 
           {/* Form */}
           <form
             onSubmit={mode === 'login' ? handleLogin : handleSignUp}
-            className="space-y-5"
+            className="space-y-4"
           >
             {/* Error Alert */}
             {error && (
-              <div className="bg-red-50 border-l-4 border-red-500 rounded-r-lg px-4 py-3 text-[12px] text-red-800 font-medium shadow-sm">
+              <div className="bg-red-50 border border-red-200 rounded-lg px-3.5 py-2.5 text-[11px] text-red-800 font-medium">
                 {error}
               </div>
             )}
 
             {/* Full Name (Sign Up only) */}
             {mode === 'signup' && (
-              <div className="space-y-1.5">
-                <label className="text-[12px] font-bold text-[#334155]">
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
                   Full Name
                 </label>
                 <input
@@ -201,44 +206,37 @@ export default function LoginPage() {
                   onChange={(e) => setFullName(e.target.value)}
                   placeholder="e.g. Alok Mahapatra"
                   required
-                  className="w-full px-4 py-3 text-[13px] bg-white border border-[#cbd5e1] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#0f172a]/20 focus:border-[#0f172a] transition-all placeholder:text-[#94a3b8] shadow-sm"
+                  className="w-full px-3 py-2 text-[12px] bg-white border border-slate-200 rounded-lg focus:outline-none focus:border-slate-800 focus:ring-0 transition-colors placeholder:text-slate-400"
                 />
               </div>
             )}
 
             {/* Email Field */}
-            <div className="space-y-1.5">
-              <label className="text-[12px] font-bold text-[#334155]">
+            <div className="space-y-1">
+              <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
                 Email Address
               </label>
               <div className="relative">
-                <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[#94a3b8] pointer-events-none" />
+                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
                 <input
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="you@example.com"
+                  placeholder="name@firm.com"
                   required
                   autoFocus
-                  className="w-full pl-11 pr-4 py-3 text-[13px] bg-white border border-[#cbd5e1] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#0f172a]/20 focus:border-[#0f172a] transition-all placeholder:text-[#94a3b8] shadow-sm"
+                  className="w-full pl-9 pr-3 py-2 text-[12px] bg-white border border-slate-200 rounded-lg focus:outline-none focus:border-slate-800 focus:ring-0 transition-colors placeholder:text-slate-400"
                 />
               </div>
             </div>
 
             {/* Password Field */}
-            <div className="space-y-1.5">
-              <div className="flex items-center justify-between">
-                <label className="text-[12px] font-bold text-[#334155]">
-                  Password
-                </label>
-                {mode === 'login' && (
-                  <span className="text-[11px] font-medium text-[#1d4ed8] cursor-pointer hover:underline">
-                    Forgot password?
-                  </span>
-                )}
-              </div>
+            <div className="space-y-1">
+              <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                Password
+              </label>
               <div className="relative">
-                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[#94a3b8] pointer-events-none" />
+                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
                 <input
                   type={showPassword ? 'text' : 'password'}
                   value={password}
@@ -246,15 +244,15 @@ export default function LoginPage() {
                   placeholder={mode === 'signup' ? 'Min 6 characters' : '••••••••'}
                   required
                   minLength={mode === 'signup' ? 6 : undefined}
-                  className="w-full pl-11 pr-11 py-3 text-[13px] bg-white border border-[#cbd5e1] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#0f172a]/20 focus:border-[#0f172a] transition-all placeholder:text-[#94a3b8] shadow-sm"
+                  className="w-full pl-9 pr-9 py-2 text-[12px] bg-white border border-slate-200 rounded-lg focus:outline-none focus:border-slate-800 focus:ring-0 transition-colors placeholder:text-slate-400"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 text-[#94a3b8] hover:text-[#334155] transition-colors cursor-pointer"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors cursor-pointer"
                   tabIndex={-1}
                 >
-                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  {showPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
                 </button>
               </div>
             </div>
@@ -263,12 +261,12 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full mt-2 py-3 bg-[#0f172a] text-white text-[13px] font-bold rounded-xl hover:bg-[#1e293b] active:scale-[0.98] disabled:opacity-70 disabled:cursor-not-allowed transition-all shadow-lg cursor-pointer flex items-center justify-center gap-2"
+              className="w-full mt-2 py-2 bg-slate-950 hover:bg-slate-900 text-white text-[11px] font-bold uppercase tracking-wider rounded-lg active:scale-[0.99] disabled:opacity-70 disabled:cursor-not-allowed transition-all cursor-pointer flex items-center justify-center gap-2 shadow-sm"
             >
               {loading ? (
                 <>
-                  <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  <span>{mode === 'login' ? 'Authenticating...' : 'Setting up account...'}</span>
+                  <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  <span>{mode === 'login' ? 'Authenticating...' : 'Registering...'}</span>
                 </>
               ) : (
                 <span>{mode === 'login' ? 'Sign In' : 'Create Account'}</span>

@@ -205,7 +205,18 @@ export default function ClientDashboard({ clientsData }: ClientDashboardProps) {
 
       const { data } = await q.order('full_name', { ascending: true });
       if (data) {
-        setStaff(data);
+        if (profile?.role === 'hod' && profile.department && profile.department !== 'ALL') {
+          const hodDepts = profile.department.split(',').map((d: string) => d.trim());
+          const filtered = data.filter((s: any) => {
+            if (!s.department) return false;
+            if (s.department === 'ALL') return true;
+            const staffDepts = s.department.split(',').map((d: string) => d.trim());
+            return staffDepts.some((sd: string) => hodDepts.includes(sd));
+          });
+          setStaff(filtered);
+        } else {
+          setStaff(data);
+        }
       }
     }
     if (profile) {
@@ -531,7 +542,7 @@ export default function ClientDashboard({ clientsData }: ClientDashboardProps) {
               <option value="ALL">All Staff</option>
               <option value="UNASSIGNED">Unassigned</option>
               {staff
-                .filter((s) => s.department === 'ITR' || s.department === 'ALL')
+                .filter((s) => s.department === 'ALL' || (s.department && s.department.split(',').map((d: string) => d.trim()).includes('ITR')))
                 .map((s) => (
                   <option key={s.id} value={s.id}>
                     {s.full_name || s.email.split('@')[0]}
@@ -647,7 +658,7 @@ export default function ClientDashboard({ clientsData }: ClientDashboardProps) {
                         >
                           <option value="">Unassigned</option>
                           {staff
-                            .filter((s) => s.department === 'ITR' || s.department === 'ALL')
+                            .filter((s) => s.department === 'ALL' || (s.department && s.department.split(',').map((d: string) => d.trim()).includes('ITR')))
                             .map((s) => (
                               <option key={s.id} value={s.id}>
                                 {s.full_name || s.email.split('@')[0]} ({s.role === 'hod' ? `HOD-${s.department}` : s.role})
