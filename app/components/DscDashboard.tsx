@@ -503,9 +503,9 @@ export default function DscDashboard({ clientsData }: DscDashboardProps) {
             className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-bold text-[#555] bg-white border border-[#ddd] rounded-lg hover:border-[#aaa] transition-colors cursor-pointer"
             title="Auto reminder settings"
           >
-            <span className={`w-1.5 h-1.5 rounded-full ${reminderEnabled ? 'bg-emerald-500 animate-pulse' : 'bg-slate-300'}`} />
             <Bell className="w-3.5 h-3.5 text-slate-500" />
             <span>Reminder Settings</span>
+            <span className="w-1.5 h-1.5 rounded-full bg-slate-300" />
           </button>
           <button
             onClick={() => {
@@ -515,9 +515,9 @@ export default function DscDashboard({ clientsData }: DscDashboardProps) {
             className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-bold text-[#555] bg-white border border-[#ddd] rounded-lg hover:border-[#aaa] transition-colors cursor-pointer"
             title="DSC Expiry reminder settings"
           >
-            <span className={`w-1.5 h-1.5 rounded-full ${expiryReminderEnabled ? 'bg-amber-500 animate-pulse' : 'bg-slate-300'}`} />
             <BellRing className="w-3.5 h-3.5 text-slate-500" />
             <span>Expiry Reminders</span>
+            <span className="w-1.5 h-1.5 rounded-full bg-slate-300" />
           </button>
           <button
             onClick={exportCSV}
