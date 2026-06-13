@@ -10,6 +10,8 @@ All notable changes to the CA-bOt Frontend client dashboard will be documented i
 - **Reminder Indicator Styling**:
   - Removed pulsing status dots from the DSC Dashboard toolbar buttons ("Reminder Settings" and "Expiry Reminders").
   - Replaced them with simple, clean static gray dots positioned directly after the button text.
+- **Department-Filtered Assignments**:
+  - Fixed a bug in the DSC Dashboard where the "Assigned To" column and toolbar filter dropdowns rendered all employees instead of only those assigned to the DSC or ALL departments. Both dropdowns are now correctly filtered.
 
 ## [1.23.0] - 2026-06-13
 ### Added
