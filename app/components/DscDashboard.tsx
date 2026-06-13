@@ -594,11 +594,13 @@ export default function DscDashboard({ clientsData }: DscDashboardProps) {
             >
               <option value="ALL">All Staff</option>
               <option value="UNASSIGNED">Unassigned</option>
-              {staff.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.full_name || s.email.split('@')[0]}
-                </option>
-              ))}
+              {staff
+                .filter((s) => s.department === 'DSC' || s.department === 'ALL')
+                .map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.full_name || s.email.split('@')[0]}
+                  </option>
+                ))}
             </select>
           </div>
         )}
@@ -793,9 +795,13 @@ export default function DscDashboard({ clientsData }: DscDashboardProps) {
                         className="px-1.5 py-0.5 text-[11px] bg-white border border-[#ddd] rounded-md focus:outline-none focus:border-[#999] cursor-pointer font-medium text-slate-700 w-full truncate"
                       >
                         <option value="">Unassigned</option>
-                        {staff.map((s) => (
-                          <option key={s.id} value={s.id}>{s.full_name || s.email.split('@')[0]}</option>
-                        ))}
+                        {staff
+                          .filter((s) => s.department === 'DSC' || s.department === 'ALL')
+                          .map((s) => (
+                            <option key={s.id} value={s.id}>
+                              {s.full_name || s.email.split('@')[0]}
+                            </option>
+                          ))}
                       </select>
                     </td>
 
