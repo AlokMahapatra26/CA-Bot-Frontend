@@ -1496,7 +1496,7 @@ export default function DscDashboard({ clientsData }: DscDashboardProps) {
             <div className="bg-gradient-to-r from-amber-50 to-orange-50/50 px-5 py-4 border-b border-amber-100 flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <div className="p-1.5 bg-amber-100 text-amber-700 rounded-lg">
-                  <BellRing className="w-4 h-4 animate-bounce" />
+                  <BellRing className="w-4 h-4" />
                 </div>
                 <div>
                   <h3 className="text-sm font-bold text-slate-800 tracking-wide uppercase">

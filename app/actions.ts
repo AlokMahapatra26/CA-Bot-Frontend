@@ -558,7 +558,7 @@ export async function importClients(clients: Array<{ full_name: string; phone_nu
         .map(c => ({
           client_id: c.id,
           fy_year: '2025-26',
-          status: 'AWAITING_BANK_NAME',
+          status: 'SERVICE_MENU',
           filing_status: 'AWAITING_DOCS',
           company_id: companyId
         }));
@@ -637,7 +637,7 @@ export async function updateClientProfile(clientId: string, updates: {
             .insert({
               client_id: clientId,
               fy_year: '2025-26',
-              status: 'AWAITING_BANK_NAME',
+              status: 'SERVICE_MENU',
               filing_status: 'AWAITING_DOCS',
               company_id: clientData?.company_id || null
             });
@@ -798,7 +798,7 @@ export async function createClientProfile(client: {
         .insert({
           client_id: inserted.id,
           fy_year: '2025-26',
-          status: 'AWAITING_BANK_NAME',
+          status: 'SERVICE_MENU',
           filing_status: 'AWAITING_DOCS',
           company_id: companyId
         });
@@ -1283,6 +1283,47 @@ export async function sendDscWhatsAppMessage(
     return { success: true };
   } catch (error: any) {
     console.error('Send DSC WhatsApp Action Error:', error);
+    return { success: false, error: error.message };
+  }
+}
+
+export async function deleteDscApplicationAction(clientId: string) {
+  try {
+    // 1. Fetch current client services
+    const { data: client, error: fetchErr } = await serverSupabase
+      .from('clients')
+      .select('services')
+      .eq('id', clientId)
+      .single();
+      
+    if (fetchErr) throw fetchErr;
+    
+    // 2. Filter out 'DSC' from services
+    const updatedServices = (client?.services || []).filter((s: string) => s !== 'DSC');
+    
+    // 3. Update client record with new services array
+    const { error: updateErr } = await serverSupabase
+      .from('clients')
+      .update({ services: updatedServices })
+      .eq('id', clientId);
+      
+    if (updateErr) throw updateErr;
+    
+    // 4. Delete DSC application record
+    const { error: deleteErr } = await serverSupabase
+      .from('dsc_applications')
+      .delete()
+      .eq('client_id', clientId);
+      
+    if (deleteErr) throw deleteErr;
+    
+    revalidatePath('/dsc');
+    revalidatePath('/clients');
+    revalidatePath('/');
+    
+    return { success: true };
+  } catch (error: any) {
+    console.error('Delete DSC Application Action Error:', error);
     return { success: false, error: error.message };
   }
 }
