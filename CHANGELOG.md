@@ -4,6 +4,11 @@ All notable changes to the CA-bOt Frontend client dashboard will be documented i
 
 ## [1.23.0] - 2026-06-13
 ### Added
+- **DSC Expiry Reminders**:
+  - Implemented a completely separate **Expiry Reminders** button in the DSC Dashboard toolbar.
+  - Built a dedicated glassmorphic **DSC Expiry Alert Settings** modal.
+  - Enabled selecting/checking custom trigger days (e.g. 7 days, 3 days, 1 day before expiration).
+  - Designed responsive visual target lists inside the settings modal, color-coding expiring-soon items based on severity.
 - **Unified WhatsApp Broadcast Integration**:
   - Integrated the **Broadcast WhatsApp Message** feature directly into the DSC Dashboard with a dedicated toolbar action button and a glassmorphic confirmation modal.
   - Linked the modal dynamically to target only the currently filtered subset of DSC clients.
