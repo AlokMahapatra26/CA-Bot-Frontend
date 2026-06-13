@@ -978,7 +978,10 @@ export default function ClientDashboard({ clientsData }: ClientDashboardProps) {
                       const res = await fetch('http://localhost:4000/api/broadcast-message', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ text: broadcastMsgText }),
+                        body: JSON.stringify({ 
+                          text: broadcastMsgText,
+                          jids: filtered.map((c: any) => c.whatsapp_jid).filter(Boolean)
+                        }),
                       });
                       const data = await res.json();
                       if (res.ok && data.success) {

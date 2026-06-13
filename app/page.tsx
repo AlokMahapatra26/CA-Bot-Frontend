@@ -17,7 +17,7 @@ export default function RootDashboardPage() {
     { key: 'clients', href: '/clients', label: 'Client Profiles', desc: 'Manage master accountant assignments, approvals, and KYC status.', icon: Users },
     { key: 'itr', href: '/itr', label: 'ITR Filing Dashboard', desc: 'High-density client filings tracking, filtering, and custom doc preview.', icon: FileText },
     { key: 'gst', href: '/gst', label: 'GST Filing (Inactive)', desc: 'Goods and Services Tax document flow and returns verification.', icon: Landmark, disabled: true },
-    { key: 'dsc', href: '/dsc', label: 'DSC Management (Inactive)', desc: 'Digital Signature Certificate keys tracking and logs.', icon: Key, disabled: true },
+    { key: 'dsc', href: '/dsc', label: 'DSC Management', desc: 'Digital Signature Certificate keys tracking and logs.', icon: Key },
   ];
 
   const modules = isMounted

@@ -2,6 +2,20 @@
 
 All notable changes to the CA-bOt Frontend client dashboard will be documented in this file.
 
+## [1.23.0] - 2026-06-13
+### Added
+- **Unified WhatsApp Broadcast Integration**:
+  - Integrated the **Broadcast WhatsApp Message** feature directly into the DSC Dashboard with a dedicated toolbar action button and a glassmorphic confirmation modal.
+  - Linked the modal dynamically to target only the currently filtered subset of DSC clients.
+- **DSC Expiry Layout Optimization**:
+  - Removed redundant raw date string rendering next to the date input, eliminating horizontal column overlap/spill.
+  - Formatted expiring-soon certificates to show a compact warning badge (`{diffDays}d left`) instead of the full date.
+  - Structured the Expiry Date cell into a clean vertical flex container (`flex flex-col`), centering components and ensuring warnings stack neatly under the date picker.
+
+### Changed
+- **Targeted Broadcast messaging**:
+  - Patched the existing main Client Dashboard broadcast feature to send the filtered list of JIDs, aligning actual WhatsApp transmissions with active dashboard UI filters.
+
 ## [1.22.0] - 2026-06-12
 ### Added
 - **Direct WhatsApp Document Request Templates**:

@@ -58,10 +58,27 @@ export async function approveClient(clientId: string) {
 
     if (fetchErr || !client) throw new Error(fetchErr?.message || 'Client not found');
 
-    // 2. Update account_status to APPROVED and bot_status to REGISTERED
+    // Fetch the logged-in user's company_id to associate with this client
+    const supabase = await createSupabaseServer();
+    const { data: { user } } = await supabase.auth.getUser();
+    let companyId = null;
+    if (user) {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('company_id')
+        .eq('id', user.id)
+        .single();
+      companyId = profile?.company_id || null;
+    }
+
+    // 2. Update account_status to APPROVED, bot_status to REGISTERED, and set company_id
     const { error: updateErr } = await serverSupabase
       .from('clients')
-      .update({ account_status: 'APPROVED', bot_status: 'REGISTERED' })
+      .update({ 
+        account_status: 'APPROVED', 
+        bot_status: 'REGISTERED',
+        company_id: companyId
+      })
       .eq('id', clientId);
 
     if (updateErr) throw new Error(updateErr.message);
@@ -80,8 +97,8 @@ export async function approveClient(clientId: string) {
               `Dear *${name}*, your account with *DAV Labs* has been verified and approved by our CA team! 🎉\n\n` +
               `You can now access our services. Reply *hi* to get started!\n\n` +
               `Available services:\n` +
-              `*1* — 📊 ITR Filing (Income Tax Return)\n\n` +
-              `_More services coming soon!_`
+              `*1* — 📊 ITR Filing (Income Tax Return)\n` +
+              `*2* — 🔑 DSC Application (Digital Signature Certificate)`
           }),
         });
       } catch (e) {
@@ -633,6 +650,40 @@ export async function updateClientProfile(clientId: string, updates: {
       }
     }
 
+    // Sync DSC application active status
+    const hasDsc = updates.services ? updates.services.includes('DSC') : false;
+    if (hasDsc !== undefined) {
+      if (hasDsc) {
+        const { data: existing } = await serverSupabase
+          .from('dsc_applications')
+          .select('id')
+          .eq('client_id', clientId)
+          .maybeSingle();
+
+        if (!existing) {
+          // Fetch client's company_id
+          const { data: clientData } = await serverSupabase
+            .from('clients')
+            .select('company_id')
+            .eq('id', clientId)
+            .single();
+
+          await serverSupabase
+            .from('dsc_applications')
+            .insert({
+              client_id: clientId,
+              company_id: clientData?.company_id || null,
+              status: 'AWAITING_TYPE'
+            });
+        }
+      } else {
+        await serverSupabase
+          .from('dsc_applications')
+          .delete()
+          .eq('client_id', clientId);
+      }
+    }
+
     revalidatePath('/clients');
     revalidatePath('/');
     return { success: true };
@@ -1175,5 +1226,63 @@ export async function updateTeamMemberDetails({
   } catch (error: any) {
     console.error('Update Team Member Details Action Error:', error);
     return { success: false, error: error.message || 'Failed to update team member details.' };
+  }
+}
+
+export async function updateDscApplicationAction(id: string, updates: Partial<any>) {
+  try {
+    const { error } = await serverSupabase
+      .from('dsc_applications')
+      .update(updates)
+      .eq('id', id);
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    revalidatePath('/dsc');
+    return { success: true };
+  } catch (error: any) {
+    console.error('Update DSC Application Action Error:', error);
+    return { success: false, error: error.message };
+  }
+}
+
+export async function sendDscWhatsAppMessage(
+  recipientJid: string,
+  message: string,
+  dscId: string,
+  statusToUpdate?: string
+) {
+  try {
+    const response = await fetch('http://localhost:4000/api/send-message', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        jid: recipientJid,
+        text: message
+      })
+    });
+
+    if (!response.ok) {
+      console.warn('WhatsApp API warning: Message could not be sent to WhatsApp bot.');
+    }
+
+    if (statusToUpdate) {
+      const { error } = await serverSupabase
+        .from('dsc_applications')
+        .update({ status: statusToUpdate })
+        .eq('id', dscId);
+
+      if (error) {
+        throw new Error(`Failed to sync status: ${error.message}`);
+      }
+    }
+
+    revalidatePath('/dsc');
+    return { success: true };
+  } catch (error: any) {
+    console.error('Send DSC WhatsApp Action Error:', error);
+    return { success: false, error: error.message };
   }
 }
