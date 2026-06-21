@@ -88,6 +88,19 @@ export async function approveClient(clientId: string) {
     if (client.whatsapp_jid) {
       const name = client.full_name || 'there';
       try {
+        let companyName = 'GB Laddha and Co LLP';
+        try {
+          const configRes = await fetch(`${BACKEND_URL}/api/config`);
+          if (configRes.ok) {
+            const configData = await configRes.json();
+            if (configData.companyName) {
+              companyName = configData.companyName;
+            }
+          }
+        } catch (configErr) {
+          console.warn('Failed to fetch company name config:', configErr);
+        }
+
         await fetch(`${BACKEND_URL}/api/send-message`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -95,7 +108,7 @@ export async function approveClient(clientId: string) {
             jid: client.whatsapp_jid,
             text:
               `✅ *Account Approved!*\n\n` +
-              `Dear *${name}*, your account with *DAV Labs* has been verified and approved by our CA team! 🎉\n\n` +
+              `Dear *${name}*, your account with *${companyName}* has been verified and approved by our CA team! 🎉\n\n` +
               `What service do you need?`,
             buttons: [
               { id: 'menu_itr', title: '📊 ITR Filing' },
@@ -478,6 +491,19 @@ export async function uploadItrvReceipt(filingId: string, formData: FormData) {
       if (recipientJid) {
         // Send automated message with document attachment!
         try {
+          let companyName = 'GB Laddha and Co LLP';
+          try {
+            const configRes = await fetch(`${BACKEND_URL}/api/config`);
+            if (configRes.ok) {
+              const configData = await configRes.json();
+              if (configData.companyName) {
+                companyName = configData.companyName;
+              }
+            }
+          } catch (configErr) {
+            console.warn('Failed to fetch company name config:', configErr);
+          }
+
           const waResponse = await fetch(`${BACKEND_URL}/api/send-message`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -488,7 +514,7 @@ export async function uploadItrvReceipt(filingId: string, formData: FormData) {
                 `Dear *${clientName}*,\n\n` +
                 `We have successfully filed your Income Tax Return for Financial Year *${activeFy}*!\n\n` +
                 `Please find your official *ITR-V Acknowledgement Receipt* PDF attached below for your records.\n\n` +
-                `Thank you for choosing *DAV Labs*! 🙏`,
+                `Thank you for choosing *${companyName}*! 🙏`,
               documentUrl: publicUrl,
               fileName: `ITRV_Acknowledgement_${clientName.replace(/[^a-zA-Z0-9]/g, '_')}_FY_${activeFy}.pdf`
             })
