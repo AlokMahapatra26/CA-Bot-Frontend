@@ -14,6 +14,7 @@ import { createSupabaseBrowser } from '@/lib/supabase-browser';
 import ClientNameCell from './ClientNameCell';
 import DscDeleteButton from './DscDeleteButton';
 import { updateDscApplicationAction, sendDscWhatsAppMessage, deleteDscApplicationAction } from '../actions';
+import { BACKEND_URL } from '@/lib/api';
 
 interface DscDashboardProps {
   clientsData: any[];
@@ -123,7 +124,7 @@ export default function DscDashboard({ clientsData }: DscDashboardProps) {
 
   const fetchReminderStatus = async () => {
     try {
-      const res = await fetch('http://localhost:4000/api/dsc-reminders/status');
+      const res = await fetch(`${BACKEND_URL}/api/dsc-reminders/status`);
       if (res.ok) {
         const data = await res.json();
         if (data.success) {
@@ -153,7 +154,7 @@ export default function DscDashboard({ clientsData }: DscDashboardProps) {
 
   const fetchExpiryReminderStatus = async () => {
     try {
-      const res = await fetch('http://localhost:4000/api/dsc-expiry-reminders/status');
+      const res = await fetch(`${BACKEND_URL}/api/dsc-expiry-reminders/status`);
       if (res.ok) {
         const data = await res.json();
         if (data.success) {
@@ -174,7 +175,7 @@ export default function DscDashboard({ clientsData }: DscDashboardProps) {
     setExpiryReminderEnabled(newEnabled);
     setSavingExpiryReminderSettings(true);
     try {
-      const res = await fetch('http://localhost:4000/api/dsc-expiry-reminders/toggle', {
+      const res = await fetch(`${BACKEND_URL}/api/dsc-expiry-reminders/toggle`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -205,7 +206,7 @@ export default function DscDashboard({ clientsData }: DscDashboardProps) {
     setExpiryRemindDays(updatedDays);
     setSavingExpiryReminderSettings(true);
     try {
-      const res = await fetch('http://localhost:4000/api/dsc-expiry-reminders/toggle', {
+      const res = await fetch(`${BACKEND_URL}/api/dsc-expiry-reminders/toggle`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -236,7 +237,7 @@ export default function DscDashboard({ clientsData }: DscDashboardProps) {
     setExpiryReminderIsTesting(newTesting);
     setSavingExpiryReminderSettings(true);
     try {
-      const res = await fetch('http://localhost:4000/api/dsc-expiry-reminders/toggle', {
+      const res = await fetch(`${BACKEND_URL}/api/dsc-expiry-reminders/toggle`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1152,7 +1153,7 @@ export default function DscDashboard({ clientsData }: DscDashboardProps) {
                     }
                     setBroadcastingMsg(true);
                     try {
-                      const res = await fetch('http://localhost:4000/api/broadcast-message', {
+                      const res = await fetch(`${BACKEND_URL}/api/broadcast-message`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ 
@@ -1245,7 +1246,7 @@ export default function DscDashboard({ clientsData }: DscDashboardProps) {
                       const newEnabled = !reminderEnabled;
                       setSavingReminderSettings(true);
                       try {
-                        const res = await fetch('http://localhost:4000/api/dsc-reminders/toggle', {
+                        const res = await fetch(`${BACKEND_URL}/api/dsc-reminders/toggle`, {
                           method: 'POST',
                           headers: { 'Content-Type': 'application/json' },
                           body: JSON.stringify({ enabled: newEnabled, intervalHours: reminderInterval, isTesting: reminderIsTesting }),
@@ -1298,7 +1299,7 @@ export default function DscDashboard({ clientsData }: DscDashboardProps) {
                       const newInterval = newTesting ? 10 : 24; // Default to 10s or 24h
                       setSavingReminderSettings(true);
                       try {
-                        const res = await fetch('http://localhost:4000/api/dsc-reminders/toggle', {
+                        const res = await fetch(`${BACKEND_URL}/api/dsc-reminders/toggle`, {
                           method: 'POST',
                           headers: { 'Content-Type': 'application/json' },
                           body: JSON.stringify({ enabled: reminderEnabled, intervalHours: newInterval, isTesting: newTesting }),
@@ -1354,7 +1355,7 @@ export default function DscDashboard({ clientsData }: DscDashboardProps) {
                   onMouseUp={async () => {
                     setSavingReminderSettings(true);
                     try {
-                      const res = await fetch('http://localhost:4000/api/dsc-reminders/toggle', {
+                      const res = await fetch(`${BACKEND_URL}/api/dsc-reminders/toggle`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ enabled: reminderEnabled, intervalHours: reminderInterval, isTesting: reminderIsTesting }),
@@ -1464,7 +1465,7 @@ export default function DscDashboard({ clientsData }: DscDashboardProps) {
                     if (triggeringReminders) return;
                     setTriggeringReminders(true);
                     try {
-                      const res = await fetch('http://localhost:4000/api/dsc-reminders/trigger', {
+                      const res = await fetch(`${BACKEND_URL}/api/dsc-reminders/trigger`, {
                         method: 'POST'
                       });
                       const data = await res.json();
@@ -1690,7 +1691,7 @@ export default function DscDashboard({ clientsData }: DscDashboardProps) {
                     if (triggeringExpiryReminders) return;
                     setTriggeringExpiryReminders(true);
                     try {
-                      const res = await fetch('http://localhost:4000/api/dsc-expiry-reminders/trigger', {
+                      const res = await fetch(`${BACKEND_URL}/api/dsc-expiry-reminders/trigger`, {
                         method: 'POST'
                       });
                       const data = await res.json();

@@ -11,6 +11,7 @@ import ClientNameCell from './ClientNameCell';
 import DocPreviewModal from './DocPreviewModal';
 import { useAuth } from '@/app/components/AuthProvider';
 import { createSupabaseBrowser } from '@/lib/supabase-browser';
+import { BACKEND_URL } from '@/lib/api';
 
 function CopyButton({ text, title }: { text: string; title: string }) {
   const [copied, setCopied] = useState(false);
@@ -327,7 +328,7 @@ export default function ClientDashboard({ clientsData }: ClientDashboardProps) {
 
   const fetchReminderStatus = async () => {
     try {
-      const res = await fetch('http://localhost:4000/api/reminders/status');
+      const res = await fetch(`${BACKEND_URL}/api/reminders/status`);
       if (res.ok) {
         const data = await res.json();
         if (data.success) {
@@ -849,7 +850,7 @@ export default function ClientDashboard({ clientsData }: ClientDashboardProps) {
                     if (!customMsgText.trim()) return;
                     setSendingMsg(true);
                     try {
-                      const res = await fetch('http://localhost:4000/api/send-message', {
+                      const res = await fetch(`${BACKEND_URL}/api/send-message`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ jid: activeMsgClient.jid, text: customMsgText }),
@@ -986,7 +987,7 @@ export default function ClientDashboard({ clientsData }: ClientDashboardProps) {
                     }
                     setBroadcastingMsg(true);
                     try {
-                      const res = await fetch('http://localhost:4000/api/broadcast-message', {
+                      const res = await fetch(`${BACKEND_URL}/api/broadcast-message`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ 
@@ -1079,7 +1080,7 @@ export default function ClientDashboard({ clientsData }: ClientDashboardProps) {
                       const newEnabled = !reminderEnabled;
                       setSavingReminderSettings(true);
                       try {
-                        const res = await fetch('http://localhost:4000/api/reminders/toggle', {
+                        const res = await fetch(`${BACKEND_URL}/api/reminders/toggle`, {
                           method: 'POST',
                           headers: { 'Content-Type': 'application/json' },
                           body: JSON.stringify({ enabled: newEnabled, intervalHours: reminderInterval, isTesting: reminderIsTesting }),
@@ -1131,7 +1132,7 @@ export default function ClientDashboard({ clientsData }: ClientDashboardProps) {
                       const newInterval = newTesting ? 10 : 24; // Default to 10s or 24h
                       setSavingReminderSettings(true);
                       try {
-                        const res = await fetch('http://localhost:4000/api/reminders/toggle', {
+                        const res = await fetch(`${BACKEND_URL}/api/reminders/toggle`, {
                           method: 'POST',
                           headers: { 'Content-Type': 'application/json' },
                           body: JSON.stringify({ enabled: reminderEnabled, intervalHours: newInterval, isTesting: newTesting }),
@@ -1186,7 +1187,7 @@ export default function ClientDashboard({ clientsData }: ClientDashboardProps) {
                   onMouseUp={async () => {
                     setSavingReminderSettings(true);
                     try {
-                      const res = await fetch('http://localhost:4000/api/reminders/toggle', {
+                      const res = await fetch(`${BACKEND_URL}/api/reminders/toggle`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ enabled: reminderEnabled, intervalHours: reminderInterval, isTesting: reminderIsTesting }),
@@ -1282,7 +1283,7 @@ export default function ClientDashboard({ clientsData }: ClientDashboardProps) {
                     if (triggeringReminders) return;
                     setTriggeringReminders(true);
                     try {
-                      const res = await fetch('http://localhost:4000/api/reminders/trigger', {
+                      const res = await fetch(`${BACKEND_URL}/api/reminders/trigger`, {
                         method: 'POST'
                       });
                       const data = await res.json();

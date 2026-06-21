@@ -9,6 +9,9 @@ import { useAuth } from '@/app/components/AuthProvider';
 import { useFeatureToggles } from '@/app/components/FeatureToggleContext';
 
 
+import { BACKEND_URL } from '@/lib/api';
+
+
 export default function Sidebar() {
   const pathname = usePathname();
   const { profile, signOut } = useAuth();
@@ -82,7 +85,7 @@ export default function Sidebar() {
   useEffect(() => {
     const poll = async () => {
       try {
-        const res = await fetch('http://localhost:4000/api/bot/status');
+        const res = await fetch(`${BACKEND_URL}/api/bot/status`);
         if (res.ok) {
           const d = await res.json();
           setStatus(d.status);
@@ -94,6 +97,7 @@ export default function Sidebar() {
     const i = setInterval(poll, 5000);
     return () => clearInterval(i);
   }, []);
+
 
 
 

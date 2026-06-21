@@ -3,6 +3,7 @@
 import { createClient } from '@supabase/supabase-js';
 import { revalidatePath } from 'next/cache';
 import { createSupabaseServer } from '@/lib/supabase-server';
+import { BACKEND_URL } from '@/lib/api';
 
 // Initialize a server-only Supabase client.
 // We try to use the private service role key if available, otherwise fallback to the public anon key.
@@ -87,7 +88,7 @@ export async function approveClient(clientId: string) {
     if (client.whatsapp_jid) {
       const name = client.full_name || 'there';
       try {
-        await fetch('http://localhost:4000/api/send-message', {
+        await fetch(`${BACKEND_URL}/api/send-message`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -138,7 +139,7 @@ export async function rejectClientAccount(clientId: string, reason?: string) {
       const name = client.full_name || 'User';
       const reasonText = reason ? `\n\n*Reason:* ${reason}` : '';
       try {
-        await fetch('http://localhost:4000/api/send-message', {
+        await fetch(`${BACKEND_URL}/api/send-message`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -310,7 +311,7 @@ export async function rejectDocument(
 
     // 3. Send automated WhatsApp notification through backend WhatsApp socket
     const reasonText = reason ? `\n\n*Reason:* ${reason}` : ' due to incomplete or unclear details';
-    const response = await fetch('http://localhost:4000/api/send-message', {
+    const response = await fetch(`${BACKEND_URL}/api/send-message`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -352,7 +353,7 @@ export async function acceptDocument(
     const docLabel = docLabels[docType] || docType;
 
     // Send automated WhatsApp notification through backend WhatsApp socket
-    const response = await fetch('http://localhost:4000/api/send-message', {
+    const response = await fetch(`${BACKEND_URL}/api/send-message`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -389,7 +390,7 @@ export async function acceptAllDocuments(
     }
 
     // 2. Send automated WhatsApp notification through backend WhatsApp socket
-    const response = await fetch('http://localhost:4000/api/send-message', {
+    const response = await fetch(`${BACKEND_URL}/api/send-message`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -476,7 +477,7 @@ export async function uploadItrvReceipt(filingId: string, formData: FormData) {
       if (recipientJid) {
         // Send automated message with document attachment!
         try {
-          const waResponse = await fetch('http://localhost:4000/api/send-message', {
+          const waResponse = await fetch(`${BACKEND_URL}/api/send-message`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -1255,7 +1256,7 @@ export async function sendDscWhatsAppMessage(
   statusToUpdate?: string
 ) {
   try {
-    const response = await fetch('http://localhost:4000/api/send-message', {
+    const response = await fetch(`${BACKEND_URL}/api/send-message`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({

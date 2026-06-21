@@ -9,6 +9,7 @@ import ClientNameCell from './ClientNameCell';
 import DeleteButton from './DeleteButton';
 import AccountApprovalButton from './AccountApprovalButton';
 import { importClients, updateClientProfile, uploadClientDoc, createClientProfile, assignClientProfile } from '../actions';
+import { BACKEND_URL } from '@/lib/api';
 import { createSupabaseBrowser } from '@/lib/supabase-browser';
 import { useAuth } from '@/app/components/AuthProvider';
 
@@ -1073,7 +1074,7 @@ export default function ClientsDashboard({ clientsData }: ClientsDashboardProps)
                     if (!customMsgText.trim()) return;
                     setSendingMsg(true);
                     try {
-                      const res = await fetch('http://localhost:4000/api/send-message', {
+                      const res = await fetch(`${BACKEND_URL}/api/send-message`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ jid: activeMsgClient.jid, text: customMsgText }),
