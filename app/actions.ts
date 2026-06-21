@@ -96,10 +96,11 @@ export async function approveClient(clientId: string) {
             text:
               `✅ *Account Approved!*\n\n` +
               `Dear *${name}*, your account with *DAV Labs* has been verified and approved by our CA team! 🎉\n\n` +
-              `You can now access our services. Reply *hi* to get started!\n\n` +
-              `Available services:\n` +
-              `*1* — 📊 ITR Filing (Income Tax Return)\n` +
-              `*2* — 🔑 DSC Application (Digital Signature Certificate)`
+              `What service do you need?`,
+            buttons: [
+              { id: 'menu_itr', title: '📊 ITR Filing' },
+              { id: 'menu_dsc', title: '🔑 DSC Application' }
+            ]
           }),
         });
       } catch (e) {
